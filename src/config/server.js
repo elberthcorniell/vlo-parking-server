@@ -12,6 +12,10 @@ app.set('port', process.env.port || 3000);
 //static
 app.use(express.static(path.join(__dirname, '../public')));
 
+console.log(JSON.stringify({
+  valetId: '1Jhs7kL',
+  businessIdL: 'KnF2KsA'
+}))
 //middleware
 
 // Passport config
@@ -30,7 +34,6 @@ app.use(bodyParser.urlencoded({
   }));
 app.use(morgan('dev'));
 app.use(express.json());
-app.use('/api/token',  require ('../app/routes/token.routes'));
 app.use('/api/validate', require ('../app/routes/validation.routes'));
 app.get('/', (req,res)=>{
   res.sendFile(path.join(__dirname, '../public/index.html'))
