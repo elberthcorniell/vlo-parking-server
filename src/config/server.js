@@ -38,9 +38,6 @@ app.use('/api/validate', require ('../app/routes/validation.routes'));
 app.get('/', (req,res)=>{
   res.sendFile(path.join(__dirname, '../public/index.html'))
 })
-app.get('/auth/validate', (req,res)=>{
-  res.sendFile(path.join(__dirname, '../public/v/index.html'))
-})
 app.use(httpContext.middleware);
 app.use((req,res,next)=>{
   httpContext.ns.bindEmitter(req);
