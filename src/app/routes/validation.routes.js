@@ -148,6 +148,149 @@ router.post("/", auth.checkToken, (req, res) => {
   });
 });
 
+router.post("/email/", (req, res) => {
+  var { email, digits } = req.body
+  digits = digits.toString()
+  connection.query(`SELECT email FROM user WHERE email = ${mysql.escape(email)}`, (err, result) => {
+    if (err || result.length >= 1) {
+      res.json({
+        success: false,
+        email_err: 'Email already exists'
+      })
+    } else {
+      var transporter = nodemailer.createTransport({
+        service: 'gmail',
+        auth: {
+          user: 'noreply.bitnation@gmail.com',
+          pass: 'Bitnation0910'
+        }
+      });
+      var mailOptions = {
+        from: 'noreply.bitnation@gmail.com',
+        to: email,
+        subject: '[Inverte] Email Validation Code',
+        html: `
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <link href="https://fonts.googleapis.com/css2?family=Ubuntu:wght@400;500;700&display=swap" rel="stylesheet">
+          <title>Mail</title>
+          <style>
+            strong {
+              font-weight: 700;
+            }
+          </style>
+        </head>
+        <body style="background-color: #f7f7f7; font-family: 'Ubuntu', sans-serif;">
+          <table width="600" border="0" align="center" cellpadding="0" cellspacing="0">
+            <tbody>
+              <tr>
+                <td align="center" valign="middle" style="padding: 33px 0;">
+                  <a href="https://www.inverte.do/" target="_blank"><img
+                      src="https://inverte.do/assets/images/logo-text-dark.png" width="232" alt="inverte" style="border: 0;"
+                      class="CToWUd"></a>
+                </td>
+              </tr>
+              <tr>
+                <td>
+                  <div style="padding: 0 30px; background: #fff;">
+                    <table width="100%" border="0" cellspacing="0" cellpadding="0">
+                      <tbody>
+                        <tr>
+                          <td style="
+                              border-bottom: 1px solid #e6e6e6;
+                              font-size: 18px;
+                              padding: 0px 0;
+                            ">
+                            <table border="0" cellspacing="0" cellpadding="0" width="100%">
+                              <tbody>
+                                <tr>
+                                  <td>
+                                    <h2>Hi ${email.split('@')[0]}</h2>
+                                  </td>
+                                </tr>
+                              </tbody>
+                            </table>
+                          </td>
+                        </tr>
+                        <tr>
+                          <td style="
+                              font-size: 14px;
+                              line-height: 30px;
+                              padding: 15px 0px 0px 0px;
+                              color: rgb(50, 50, 50);
+                            ">
+                            <h3>
+                              Here is your email verification code:
+                            </h3>
+                            <br>
+                          </td>
+                        </tr>
+                              <td>
+                                <h1 style="text-align: center;">
+                                  <strong>${digits.slice(0, 3)} ${digits.slice(3, 6)}</strong>
+                                </h1>
+                              </td>
+                        <tr>
+                          <td style="
+                              padding: 30px 0 15px 0;
+                              font-size: 12px;
+                              color: rgb(95, 95, 95);
+                              line-height: 20px;
+                            ">
+                            <span class="il">Inverte</span> Team<br>This is an automated
+                            message, please do not reply.
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </td>
+              </tr>
+              <tr>
+              </tr>
+              <tr>
+                <td align="center"
+                  style="display: flex ;font-size: 12px; color: white; padding: 15px 10px; background-color: #01153d;">
+                  <a href="https://www.inverte.do/" target="_blank"><img align="left"
+                      style="width: 40px; height: 40px; padding: 0px 50px;" src="https://inverte.do/assets/images/logo.png"
+                      width="232" alt="inverte" style="border: 0;" class="CToWUd"></a>
+
+                  <div style="padding-top: 5px;">
+                    ©<span class="il">Inverte</span>.io All Rights Reserved<br>URL：<a
+                      style="color:white; text-decoration: none;" href="https://www.inverte.do/" target="_blank"
+                      data-saferedirecturl="https://www.google.com/url?q=https://www.binance.com/&amp;source=gmail&amp;ust=1590687447017000&amp;usg=AFQjCNGIXhm7Z3ZgPa9XpTFJ34IifWxWkA">www.<span
+                        class="il">inverte</span>.io</a>&nbsp;&nbsp;E-mail：<a href="https://bitnationdo.freshdesk.com/"
+                      style="color: white; text-decoration: none;" target="_blank">su<wbr>pport@<span
+                        class="il">bitnationdo</span>.freshdesk.com</a>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </body>
+        </html>`
+      };
+      transporter.sendMail(mailOptions, (err, info) => {
+        if (err) {/*
+          res.json({
+            success: true
+          })*/
+          res.json({
+            success: false,
+            email_err: 'Error sending email'
+          })
+        } else {
+          res.json({
+            success: true
+          })
+        }
+      })
+    }
+  })
+})
 router.post("/email/validate", (req, res) => {
   const username = req.body.username
   const secret = req.body.secret
