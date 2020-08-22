@@ -7,19 +7,8 @@ const bodyParser = require("body-parser");
 const uuid = require('uuid')
 const upload = require('express-fileupload')
 //setting
-app.set('port', process.env.port || 3000);
-
-//static
+app.set('port', process.env.port || 3001);
 app.use(express.static(path.join(__dirname, '../public')));
-
-console.log(JSON.stringify({
-  valetId: '1Jhs7kL',
-  businessIdL: 'KnF2KsA'
-}))
-//middleware
-
-// Passport config
-//require("../config/passport")(passport);
 app.use(httpContext.middleware);
 app.use((req,res,next)=>{
   httpContext.ns.bindEmitter(req);
@@ -35,18 +24,12 @@ app.use(bodyParser.urlencoded({
 app.use(morgan('dev'));
 app.use(express.json());
 app.use('/api/validate', require ('../app/routes/validation.routes'));
-app.get('/', (req,res)=>{
-  res.sendFile(path.join(__dirname, '../public/index.html'))
+app.get('/*', (req,res)=>{
+  res.json({
+    success: false,
+    msg: 'Access Denied'
+  })
 })
-app.use(httpContext.middleware);
-app.use((req,res,next)=>{
-  httpContext.ns.bindEmitter(req);
-  httpContext.ns.bindEmitter(res);
-  var requestId = req.headers["x-request-id"] || uuid.v4();
-  httpContext.set('requestId', requestId);
-  res.set('requestId', requestId)
-  next();
-});
 app.use(upload())
 app.post('/upload', (req,res)=>{
   const username=req.body.username

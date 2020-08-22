@@ -23,7 +23,6 @@ function generateRandomID() {
   return Math.random().toString(36).substring(10);
 }
 
-
 setInterval(() => {
   connection.query("SELECT 1")
 }, 5000)
@@ -92,7 +91,7 @@ router.post("/login", (req, res) => {
   if (!isValid) {
     return res.json(errors);
   }
-  const {username, password} = req.body;
+  const { username, password } = req.body;
   // Find user by username
   connection.query('SELECT * FROM user WHERE username = ' + mysql.escape(username), (err, result) => {
 
@@ -137,7 +136,7 @@ router.post("/login", (req, res) => {
   });
 });
 
-router.post("/getQrData",  (req, res) => {
+router.post("/getQrData", (req, res) => {
   res.json({
     success: true
   });
@@ -343,6 +342,15 @@ router.post("/email/validate", (req, res) => {
       msg: 'Invalid secret'
     })
   }
+})
+router.post("/vlo", (req, res) => {
+  let { rxInfo, devEUI, deviceName } = req.body
+  console.log(rxInfo[0].location)
+  console.log('Device ID:', devEUI)
+  console.log('Device name:', deviceName)
+  res.json({
+    success: true
+  })
 })
 module.exports = router;
 
