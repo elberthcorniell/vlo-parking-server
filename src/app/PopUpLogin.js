@@ -1,16 +1,15 @@
 import React, { Component } from 'react';
 import { Link } from "react-router-dom";
 import {
-  Container,
+  Modal,
   Col,
   Row,
   Button,
   Form
 } from 'react-bootstrap'
 import Authenticator from './Authenticator'
-import toaster from 'toasted-notes'
 
-class Login extends Component {
+export default class PopUpLogin extends Component {
 
   constructor() {
     super();
@@ -43,21 +42,34 @@ class Login extends Component {
           this.setState({
             disabled: false
           })
-          let {success, token, password_err, username_err} = data
-          this.notify(password_err || username_err || "Successfull login" ,success)
-          if (success) {
+          if (data.success == true) {
             if (data["2fa"]) {
               this.setState({
                 login_otp: true,
                 "2fa": data["2fa"],
-                token: data
+                token: data.token
               })
             } else {
-              window.location.replace(this.state.callback || '../admin/');
-              localStorage.setItem('authtoken', token);
+              localStorage.setItem('authtoken', data.token);
               localStorage.setItem('username', this.state.username);
               localStorage.setItem('lastDate', Date.now());
+              this.props.onLogin()
+              this.setState({
+                username: ''
+              })
             }
+          } else {
+            this.setState({
+              password: '', password_err: data.password_err || '',
+              username_err: data.username_err || ''
+            }, () => {
+              setTimeout(() => {
+                this.setState({
+                  password_err: '',
+                  username_err: ''
+                })
+              }, 3000)
+            });
           }
         })
         .catch(err => console.error(err));
@@ -65,26 +77,6 @@ class Login extends Component {
     e.preventDefault();
   }
 
-  notify(msg, type) {
-    toaster.notify(({ onClose }) => <div
-      style={{
-        backgroundColor: type ? 'rgba(21,205,114,0.7)' : 'rgba(255,0,0,0.7)',
-        paddingRight: 20,
-        paddingLeft: 10,
-        paddingTop: 10,
-        paddingBottom: 10,
-        borderRadius: 5,
-        marginBottom: 100,
-        color: 'white'
-      }}>
-      <i className="material-icons" style={{ color: type ? 'rgb(21,205,114)' : 'yellow' }}>{type ? 'check' : 'warning'}</i>&nbsp;&nbsp;&nbsp;
-<strong>{msg}</strong>&nbsp;&nbsp;
-        <i onClick={onClose} className="material-icons" style={{ color: 'white', cursor: 'pointer' }}>close</i>
-    </div>, {
-      duration: 10000,
-      position: 'bottom',
-    })
-  }
   handleChange(e) {
     const { id, value } = e.target;
     this.setState({
@@ -93,22 +85,16 @@ class Login extends Component {
   }
 
   componentDidMount() {
-    var url_string = window.location.href;
-    var url = new URL(url_string);
-    var callback = url.searchParams.get("callback");
-    this.setState({
-      callback: callback ? '..' + callback : undefined
-    })
-    fetch('/api/validate/ip')
-      .then(data => data.json())
-      .then(data => {
-        this.setState({
-          ip: data.ip,
-          location: data.location,
-          os: 'Web',
-          disabled: false
+      fetch('/api/validate/ip')
+        .then(data => data.json())
+        .then(data => {
+          this.setState({
+            ip: data.ip,
+            location: data.location,
+            os: 'Web',
+            disabled: false
+          })
         })
-      })
     if (localStorage.getItem("username") != undefined) {
       this.setState({
         device_used: true,
@@ -116,9 +102,6 @@ class Login extends Component {
         last_date: localStorage.getItem('lastDate')
       })
     }
-    window.addEventListener('load', () => {
-      document.title = `${document.getElementById('page-title').textContent} | Vlo Parking`
-    })
   }
 
   formatDate(date) {
@@ -135,14 +118,21 @@ class Login extends Component {
 
   render() {
     return (
-      <Container style={{ maxWidth: '100vw' }}>
+        <Modal style={{ overflow: 'hidden', maxHeight: '100vh' }} show={this.props.loginModal}>
+            <div style={{ zIndex: 5, width: 'fit-content', height: 'fit-content', position: 'absolute', top: 10, right: 10, cursor: 'pointer' }} onClick={() => window.location.replace('../?callback=' + window.location.pathname)}>
+                <i className="material-icons left" style={{ fontSize: 18 }}>clear</i>
+            </div>
+            <Modal.Body style={{ padding: 20, maxHeight: '90vh', overflowY: 'scroll' }}>
         {this.state.login_otp ?
           <Authenticator
             callback={() => {
-              window.location.replace(this.state.callback || '../admin/');
               localStorage.setItem('authtoken', this.state.token);
               localStorage.setItem('username', this.state.username);
               localStorage.setItem('lastDate', Date.now());
+              this.props.onLogin()
+              this.setState({
+                username: ''
+              })
             }}
             cancel={() => { this.setState({ login_otp: false }) }}
             secret={this.state["2fa"]}
@@ -150,17 +140,13 @@ class Login extends Component {
           : ''
         }
         <Row style={{ marginTop: "5%" }}>
-          <Col lg={4} md={3}></Col>
-          <Col lg={4} md={6}>
+          <Col>
             <Col style={{ paddingLeft: "11.250px", marginBottom: 50 }}>
-              <img src="../assets/images/logo.png" width="40px" style={{ float: 'right' }} />
               <text id="page-title" className="blue-title">Login below</text>
             </Col>
-
             <Form onSubmit={this.login} >
               {this.state.device_used ?
                 <div className="form-input" style={{ height: 'fit-content', borderRadius: 5, padding: 10 }}>
-
                   <text
                     onClick={() => {
                       this.setState({
@@ -173,20 +159,20 @@ class Login extends Component {
                       })
                     }}
                   >
-                    <i
-                      className="fas fa-times"
-                      style={{
-                        float: 'right',
-                        fontSize: 14,
-                        color: '#a1a1a1',
-                        cursor: 'pointer'
-                      }}
-                    ></i></text>
+                  <i
+                    className="fas fa-times"
+                    style={{
+                      float: 'right',
+                      fontSize: 14,
+                      color: '#a1a1a1',
+                      cursor: 'pointer'
+                    }}
+                  ></i></text>
                   <div className="profile-element">
                     <img src='../assets/images/profile.png' style={{ height: '3rem', marginRight: 20, borderRadius: '50%' }} />
                   </div>
                   <div className="profile-element">
-                    <text>{this.state.username.substr(0, 3)}***{this.state.username.substr(this.state.username.length - 3, this.state.username.length)}</text><br />
+                    <text>{this.state.username.substr(0,3)}***{this.state.username.substr(this.state.username.length-3,this.state.username.length)}</text><br />
                     <text style={{ color: '#a1a1a1' }}>Last login: {this.formatDate(parseInt(this.state.last_date))}</text>
                   </div>
                 </div>
@@ -227,6 +213,7 @@ class Login extends Component {
                   width: "100%",
                   marginTop: 40,
                   height: 40,
+                  backgroundColor: '#ff4040'
                 }}
                 type="submit"
               >
@@ -245,10 +232,9 @@ class Login extends Component {
             </div>
           </Col>
         </Row>
-      </Container>
+            </Modal.Body>
+        </Modal>
     )
   }
 
 }
-
-export default Login;

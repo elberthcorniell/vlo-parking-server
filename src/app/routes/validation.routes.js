@@ -9,8 +9,9 @@ var mysql = require('mysql');
 const keys = require("../../config/keys");
 const auth = require("../../config/auth");
 const connection = dbConnection();
-var nodemailer = require('nodemailer');
-var crypto = require('crypto')
+const nodemailer = require('nodemailer');
+const crypto = require('crypto')
+const http = require('http')
 
 var transporter = nodemailer.createTransport({
   service: 'gmail',
@@ -87,25 +88,20 @@ router.post('/register', (req, res) => {
 
 router.post("/login", (req, res) => {
   const { errors, isValid } = validateLoginInput(req.body);
-  // Check validation
   if (!isValid) {
     return res.json(errors);
   }
   const { username, password } = req.body;
-  // Find user by username
   connection.query('SELECT * FROM user WHERE username = ' + mysql.escape(username), (err, result) => {
-
     if (result.length < 1 && result != undefined) {
       return res.json({ username_err: "Username not found" });
     } else {
-      // Check password
       bcrypt.compare(password, result[0].password).then(isMatch => {
         if (isMatch) {
-          // User matched
-          // Create JWT Payload
+          let {userId, username} = result[0]
           const payload = {
-            id: result[0].id,
-            name: result[0].username
+            userId,
+            username
           };
           // Sign token
           jwt.sign(payload, keys.secretOrKey,
@@ -135,15 +131,60 @@ router.post("/login", (req, res) => {
 
   });
 });
+router.post("/login/valet", (req, res) => {
+  const { errors, isValid } = validateLoginInput(req.body);
+  if (!isValid) {
+    return res.json(errors);
+  }
+  const { username, password } = req.body;
+  connection.query('SELECT * FROM valet WHERE username = ' + mysql.escape(username), (err, result) => {
+    if (result.length < 1 && result != undefined) {
+      return res.json({ username_err: "Username not found" });
+    } else {
+      bcrypt.compare(password, result[0].password).then(isMatch => {
+        if (isMatch) {
+          let {valetId, username, businessId} = result[0]
+          const payload = {
+            valetId,
+            username,
+            businessId
+          };
+          // Sign token
+          jwt.sign(payload, keys.secretOrKey,
+            {
+              expiresIn: 18000 // 3 min in seconds
+            },
+            (err, token) => {
+              res.json({
+                success: true,
+                token,
+                username,
+                email: result[0].email
+              });
+            }
+          );
 
+        } else {
+          if (result == undefined) {
+            return res.json({ success: false, password_err: "Undefined result" });
+          }
+          return res.json({ success: false, password_err: "Incorrect password" });
+        }
+      });
+    }
+
+
+  });
+});
 router.post("/getQrData", (req, res) => {
   res.json({
     success: true
   });
 });
-router.post("/", auth.checkToken, (req, res) => {
+router.get("/", auth.checkToken, (req, res) => {
   res.json({
-    success: true
+    success: true,
+    ...req.body
   });
 });
 
@@ -342,6 +383,26 @@ router.post("/email/validate", (req, res) => {
       msg: 'Invalid secret'
     })
   }
+})
+
+router.get("/ip", (req, res) => {
+  let ip = (req.header('X-Real-IP') || req.connection.remoteAddress || '').split(':')
+  ip = ip[ip.length - 1]
+  http.get(`http://ip-api.com/json/${ip}`, (resp) => {
+    let data = ''
+    resp.on('data', (chunk) => {
+      data += chunk;
+    });
+    resp.on('end', () => {
+      data = JSON.parse(data)
+      data = data.city + ', ' + data.regionName + ', ' + data.country
+      res.json({
+        success: true,
+        ip,
+        location: data
+      })
+    });
+  })
 })
 router.post("/vlo", (req, res) => {
   let { rxInfo, devEUI, deviceName } = req.body

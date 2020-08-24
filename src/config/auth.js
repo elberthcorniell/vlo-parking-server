@@ -4,19 +4,17 @@ const config = require('./keys.js');
 const fs = require('fs');
 let checkToken = (req, res, next) => {
   let token = req.headers['x-access-token'] || req.headers['authorization'] || ''; // Express headers are auto converted to lowercase
-  if(isEmpty(token)||token===''||token===undefined||token=='null'){
+  if (isEmpty(token) || token == '' || token == undefined || token == 'null') {
     return res.json({
       success: false,
       message: 'Auth token is not supplied'
     });
-  }else{
+  } else {
     var base64Url = token.split('.')[1];
     var decodedValue = JSON.parse(Buffer.from(base64Url, 'base64'));
     if (token.startsWith('Bearer ')) {
-      // Remove Bearer from string
       token = token.substr("Bearer ".length);
     }
-  
     if (token) {
       jwt.verify(token, config.secretOrKey, (err, decoded) => {
         if (err) {
@@ -25,7 +23,10 @@ let checkToken = (req, res, next) => {
             message: 'Token is not valid'
           });
         } else {
-          req.body.username = decodedValue.name
+          req.body = {
+            ...req.body,
+            ...decodedValue
+          }
           req.decoded = decoded;
           next();
         }
@@ -37,7 +38,7 @@ let checkToken = (req, res, next) => {
       });
     }
   }
-  
+
 };
 
 module.exports = {
