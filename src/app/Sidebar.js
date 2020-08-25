@@ -18,7 +18,7 @@ export default class Sidebar extends Component {
                     </li>
                     <hr />
                     <li><Link to="/admin/"><i className="material-icons left">dashboard</i>Dashboard</Link></li>
-                    <li><Link to="/admin/"><i className="material-icons left">location_on</i>Live</Link></li>
+                    <li><Link to="/admin/live"><i className="material-icons left">location_on</i>Live</Link></li>
                     <li><Link to="/admin/permissons"><i className="material-icons left">person</i>Permissions</Link></li>
                     <li><Link to="/admin/settings"><i className="material-icons left">settings</i>Settings</Link></li>
                     <hr />

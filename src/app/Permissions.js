@@ -11,7 +11,6 @@ import {
 } from "react-bootstrap"
 import { QRCode } from 'react-qrcode-logo';
 import toaster from 'toasted-notes';
-import { authenticator } from '../public/otplib-browser'
 import Authenticator from './Authenticator'
 export default class Permissions extends Component {
     constructor(props) {
@@ -32,7 +31,6 @@ export default class Permissions extends Component {
         this.props.verify(() => {
             this.getActivity()
             this.getUsers()
-            this.getBusiness()
         })
     }
 
@@ -174,25 +172,6 @@ export default class Permissions extends Component {
                     })
             })
     }
-    getBusiness() {
-        fetch('/api/admin/business', {
-            headers: {
-                'Accept': 'application/json',
-                'Content-Type': 'application/json',
-                'authorization': localStorage.getItem('authtoken')
-            }
-        })
-            .then(res => res.json())
-            .then(data => {
-                let { success, business, msg } = data
-                if (!success)
-                    this.notify(msg || data.message, false)
-                if (success)
-                    this.setState({
-                        business
-                    })
-            })
-    }
     setToken() {
         fetch('/api/validate/token', {
             method: 'POST',
@@ -315,13 +294,12 @@ export default class Permissions extends Component {
                                     </Card.Body>
                                 }
                             </Col>
-
                             <Col lg={12}>
                                 <strong>Current business</strong>
-                                {this.state.business.length > 0 ?
+                                {this.props.business.length > 0 ?
                                     <Table borderless responsive>
                                         <tbody>
-                                            {this.state.business.map((info, index) => {
+                                            {this.props.business.map((info, index) => {
                                                 return (
                                                     <tr onClick={() => {
                                                         let { businessId } = info;

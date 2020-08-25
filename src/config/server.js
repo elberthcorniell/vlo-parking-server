@@ -94,27 +94,103 @@ io.on('connection', socket => {
   socket.on('myName', (req, res) => {
     res(`Hola ${req}`)
   })
-  socket.on('valetLocation', (req, res) => {
-    //Insert to db
-    console.log(req)
-    Object.keys(socket.rooms).map(trip => {
-      socket.to(trip).emit('valetLocation', req)
+  socket.on('joinTrip', (req, res) => {
+    let { tripId } = req
+    Object.keys(socket.rooms).map(room => {
+      socket.leave(room)
     })
-  })
-  socket.on('startTrip', (req, res) => {
-    let { tripId, carId, keyId, userId, valetId, businessId } = req
     socket.join(tripId)
-    connection.query("INSERT INTO trip SET ?", {
-      tripId, carId, keyId, userId, valetId, businessId
-    }, err => {
+    connection.query(`SELECT * FROM trip WHERE tripId = ${mysql.escape(tripId)}`, (err, result) => {
       if (err) {
         console.log(err)
         res("FAIL")
       } else {
-        io.sockets.in(tripId).emit('tripStarted', {
-          status: 0 ? false : true
+        let { valetId, userId, carId, keyId, dateStart, dateEnd } = result[0]
+        connection.query(`
+        SELECT date, latitude, longitude, speed FROM location WHERE type = 'valet' AND entityId = ${mysql.escape(valetId)} AND (date > ${mysql.escape(dateStart)}) AND (date < ${dateEnd ? mysql.escape(dateEnd) : 'DATE_ADD(NOW(),INTERVAL 1 YEAR)'}) ORDER BY date DESC LIMIT 1;
+        SELECT date, latitude, longitude, speed FROM location WHERE type = 'user' AND entityId = ${mysql.escape(userId)} AND (date > ${mysql.escape(dateStart)}) AND (date < ${dateEnd ? mysql.escape(dateEnd) : 'DATE_ADD(NOW(),INTERVAL 1 YEAR)'}) ORDER BY date DESC LIMIT 1;
+        SELECT date, latitude, longitude, speed FROM location WHERE type = 'GPS' AND entityId = ${mysql.escape(carId)} AND (date > ${mysql.escape(dateStart)}) AND (date < ${dateEnd ? mysql.escape(dateEnd) : 'DATE_ADD(NOW(),INTERVAL 1 YEAR)'}) ORDER BY date DESC LIMIT 1;
+        SELECT date, latitude, longitude, speed FROM location WHERE type = 'GPS' AND entityId = ${mysql.escape(keyId)} AND (date > ${mysql.escape(dateStart)}) AND (date < ${dateEnd ? mysql.escape(dateEnd) : 'DATE_ADD(NOW(),INTERVAL 1 YEAR)'}) ORDER BY date DESC LIMIT 1;
+        `, (err, result) => {
+          if (err) { res("FAIL"); console.log(err) } else {
+            let valetLocation = result[0][0]
+            let userLocation = result[1][0]
+            let carLocation = result[2][0]
+            let keyLocation = result[3][0]
+            res({
+              valetLocation,
+              userLocation,
+              carLocation,
+              keyLocation
+            })
+          }
         })
-        res("OK")
+      }
+    })
+  })
+  socket.on('valetLocation', (req, res) => {
+    let { latitude, longitude, valetId, speed, tripIds } = req
+    console.log("Valet location", req)
+    connection.query("INSERT INTO location SET ?", {
+      latitude,
+      longitude,
+      speed,
+      entityId: valetId,
+      type: 'valet'
+    }, err => {
+      if (!err) {
+        socket.emit('Message', "OK")
+        tripIds.map(trip => {
+          io.sockets.in(trip).emit('valetLocation', req)
+        })
+      } else {
+        res("FAIL")
+      }
+    })
+  })
+  socket.on('userLocation', (req, res) => {
+    let { latitude, longitude, userId, speed } = req
+    connection.query("INSERT INTO location SET ?", {
+      latitude,
+      longitude,
+      entityId: userId,
+      speed,
+      type: 'user'
+    }, err => {
+      if (!err) {
+        socket.emit('Message', "OK")
+        Object.keys(socket.rooms).map(trip => {
+          io.sockets.in(trip).emit('userLocation', req)
+        })
+      } else {
+        res("FAIL")
+      }
+    })
+  })
+  socket.on('startTrip', (req, res) => {
+    let { tripId, carId, keyId, userId, valetId, businessId } = req
+    connection.query(`SELECT * FROM trip WHERE userId = ${mysql.escape(userId)} AND dateEnd IS NULL`, (err, result) => {
+      if (result.length > 0) {
+        res({
+          success: false,
+          msg: 'You have an active trip'
+        })
+      } else {
+        connection.query("INSERT INTO trip SET ?", {
+          tripId, carId, keyId, userId, valetId, businessId
+        }, err => {
+          console.log(err)
+          if (err) {
+            res("FAIL")
+          } else {
+            socket.join(tripId)
+            setEvent(tripId, "Trip Started", 1)
+            io.sockets.in(tripId).emit('tripStarted', {
+              status: 0 ? false : true
+            })
+            res("OK")
+          }
+        })
       }
     })
   })
@@ -127,6 +203,33 @@ io.on('connection', socket => {
       res('Error creating trip')
     }
   })
+  socket.on('setAsParked', (req, res) => {
+    let { tripId, parkId } = req
+    // verify parking lot distance first
+    connection.query("INSERT INTO parkhistory SET ?", {
+      tripId, parkId
+    },err=>{
+      console.log(err)
+      if(err){
+        res("FAIL")
+      }else{
+        res("OK")
+        io.sockets.in(tripId).emit('carParked',"OK") // On carParked on vallet app 
+        setEvent(tripId, `Car Successfully Parked`, 1)
+      }
+    })
+  })
 });
 
-module.exports = app;
+function setEvent(tripId, description, type) { //push notifications
+  connection.query("INSERT INTO events SET ?", {
+    eventId: uuid.v4(),
+    tripId,
+    description,
+    type //0 = Warning, 1 = Normal, NULL = Critic 
+  })
+}
+
+module.exports = {
+  app, io
+};

@@ -98,7 +98,7 @@ router.post("/login", (req, res) => {
     } else {
       bcrypt.compare(password, result[0].password).then(isMatch => {
         if (isMatch) {
-          let {userId, username} = result[0]
+          let { userId, username } = result[0]
           const payload = {
             userId,
             username
@@ -143,7 +143,7 @@ router.post("/login/valet", (req, res) => {
     } else {
       bcrypt.compare(password, result[0].password).then(isMatch => {
         if (isMatch) {
-          let {valetId, username, businessId} = result[0]
+          let { valetId, username, businessId } = result[0]
           const payload = {
             valetId,
             username,
@@ -174,11 +174,6 @@ router.post("/login/valet", (req, res) => {
     }
 
 
-  });
-});
-router.post("/getQrData", (req, res) => {
-  res.json({
-    success: true
   });
 });
 router.get("/", auth.checkToken, (req, res) => {
@@ -406,9 +401,15 @@ router.get("/ip", (req, res) => {
 })
 router.post("/vlo", (req, res) => {
   let { rxInfo, devEUI, deviceName } = req.body
+  let { latitude, longitude } = rxInfo[0].location
+  connection.query("INSERT INTO location SET ?", {
+    latitude,
+    longitude,
+    speed: 0,
+    type: 'GPS',
+    entityId: deviceName
+  })
   console.log(rxInfo[0].location)
-  console.log('Device ID:', devEUI)
-  console.log('Device name:', deviceName)
   res.json({
     success: true
   })

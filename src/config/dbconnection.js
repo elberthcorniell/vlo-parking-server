@@ -4,6 +4,7 @@ module.exports = () =>{
         host: 'localhost',
         user: 'root',
         password: '',
-        database: 'vlo-parking'
+        database: 'vlo-parking',
+        multipleStatements: true
     });
 }

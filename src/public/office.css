@@ -420,6 +420,23 @@ a {
 .row {
     animation: 500ms ease-in-out 1 slideFromRight;
 }
+.businessTab{
+    width: 100%;
+    background-color: white;
+    border-radius: 5px;
+    box-shadow: 5px 5px 5px rgba(0,0,0,0.1);
+    padding: 10px;
+    cursor: pointer;
+    transition-duration: 0.5s;
+    margin-bottom: 20px;
+    height: fit-content;
+    text-overflow: ellipsis;
+    overflow: hidden;
+    color: #a1a1a1;
+}
+.businessTab:hover{
+    background-color: #f3f5f7;
+}
 .circle-btn{
     height: 30px;
     width: 30px;

@@ -19,6 +19,8 @@ export default class Settings extends Component {
         this.state = {
             activity: [],
             devices: [],
+            business: [],
+            parking: [],
             index: 0,
             new_address: '',
             address_err: '',
@@ -36,13 +38,15 @@ export default class Settings extends Component {
         };
         this.handleChange = this.handleChange.bind(this);
         this.addDevice = this.addDevice.bind(this);
+        this.addBusiness = this.addBusiness.bind(this);
+        this.addParking = this.addParking.bind(this);
         this.handleDropdown = this.handleDropdown.bind(this);
     }
     componentDidMount() {
         this.props.verify(() => {
-            this.getActivity()
             this.getDeviceType()
             this.getDevices()
+            this.getParking()
         })
     }
 
@@ -62,6 +66,35 @@ export default class Settings extends Component {
             "Nov", "Dec"
         ];
         return (date.getDate() + ' ' + monthNames[date.getMonth()] + ', ' + date.getFullYear())
+    }
+    getDeviceType() {
+        fetch('/api/admin/device/type')
+            .then(res => res.json())
+            .then(data => {
+                let { success, deviceType } = data
+                if (!success) {
+                    this.notify('Network Error', success)
+                } else {
+                    this.setState({
+                        deviceType
+                    })
+                }
+            })
+    }
+    getDevices() {
+        fetch('/api/admin/device')
+            .then(res => res.json())
+            .then(data => {
+                console.log(data)
+                let { success, devices } = data
+                if (!success) {
+                    this.notify('Network Error', success)
+                } else {
+                    this.setState({
+                        devices
+                    })
+                }
+            })
     }
     deleteDevice(id) {
         if (confirm('Are you sure you want to delete this Item?')) {
@@ -86,51 +119,6 @@ export default class Settings extends Component {
         } else {
             this.notify('Action canceled', false)
         }
-    }
-    getActivity() {
-        fetch('/api/validate/activity/', {
-            headers: {
-                'Accept': 'application/json',
-                'Content-Type': 'application/json',
-                'authorization': localStorage.getItem('authtoken')
-            }
-        })
-            .then(res => res.json())
-            .then(data => {
-                if (data.success == true) {
-                    this.setState({
-                        activity: data.result
-                    })
-                } else {
-
-                }
-            })
-    }
-
-    copy(id) {
-        var copyText = document.getElementById(id);
-        copyText.select();
-        document.execCommand("copy");
-        this.notify('Referal link copied', true)
-    }
-    setPassword() {
-        fetch('/api/validate/password/change', {
-            method: 'POST',
-            body: JSON.stringify({
-                password: this.state.password,
-                new_password: this.state.new_password
-            }),
-            headers: {
-                'Accept': 'application/json',
-                'Content-Type': 'application/json',
-                'authorization': localStorage.getItem('authtoken')
-            }
-        })
-            .then(res => res.json())
-            .then(data => {
-                let { success, password_err } = data
-                this.notify(password_err ? password_err : 'Password changed succesfully', success)
-            })
     }
     addDevice(e) {
         e.preventDefault()
@@ -163,36 +151,90 @@ export default class Settings extends Component {
                     })
             } else {
                 this.notify('Invalid Device Type', false)
+                this.setState({
+                    disabled: false
+                })
             }
         })
     }
-    getDeviceType() {
-        fetch('/api/admin/device/type')
-            .then(res => res.json())
-            .then(data => {
-                let { success, deviceType } = data
-                if (!success) {
-                    this.notify('Network Error', success)
-                } else {
-                    this.setState({
-                        deviceType
-                    })
+    deleteBusiness(id) {
+        if (confirm('Are you sure you want to delete this Item?')) {
+            fetch(`/api/admin/business`, {
+                method: 'DELETE',
+                body: JSON.stringify({
+                    deviceId: id
+                }),
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json',
+                    'authorization': localStorage.getItem('authtoken')
                 }
             })
+                .then(res => res.json())
+                .then(data => {
+                    let { success, msg } = data
+                    this.notify(msg, success)
+                    if (success)
+                        this.props.getBusiness()
+                })
+        } else {
+            this.notify('Action canceled', false)
+        }
     }
-    getDevices() {
-        fetch('/api/admin/device')
+    addBusiness(e) {
+        e.preventDefault()
+        this.setState({
+            disabled: true
+        }, () => {
+            console.log(this.state)
+            let { name, latitude, longitude, areaRadius, maxSpeed } = this.state
+            fetch('/api/admin/business', {
+                method: 'POST',
+                body: JSON.stringify({
+                    name, latitude, longitude, areaRadius, maxSpeed
+                }),
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json',
+                    'authorization': localStorage.getItem('authtoken')
+                }
+            })
+                .then(res => res.json())
+                .then(data => {
+                    let { success, msg } = data
+                    this.notify(msg, success)
+                    this.setState({
+                        disabled: false
+                    }, () => {
+                        if (success)
+                            this.props.getBusiness()
+                    })
+                })
+        })
+    }
+    copy(id) {
+        var copyText = document.getElementById(id);
+        copyText.select();
+        document.execCommand("copy");
+        this.notify('Referal link copied', true)
+    }
+    setPassword() {
+        fetch('/api/validate/password/change', {
+            method: 'POST',
+            body: JSON.stringify({
+                password: this.state.password,
+                new_password: this.state.new_password
+            }),
+            headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+                'authorization': localStorage.getItem('authtoken')
+            }
+        })
             .then(res => res.json())
             .then(data => {
-                console.log(data)
-                let { success, devices } = data
-                if (!success) {
-                    this.notify('Network Error', success)
-                } else {
-                    this.setState({
-                        devices
-                    })
-                }
+                let { success, password_err } = data
+                this.notify(password_err ? password_err : 'Password changed succesfully', success)
             })
     }
     setToken() {
@@ -601,6 +643,161 @@ export default class Settings extends Component {
             )
             case 2: return (
                 <Row>
+                    <Col lg={6} xs={12}>
+                        <strong>Add Business</strong>
+                        <Form onSubmit={this.addBusiness}>
+                            <div className="dark-form" style={{ marginTop: 20, display: 'inline-block', width: '100%' }}>
+                                <Form.Control type="text" id='name' placeholder="name" onChange={this.handleChange} value={this.state.unlock_amount} className="form-input" ></Form.Control>
+                            </div>
+                            <div className="dark-form" style={{ marginTop: 20, display: 'inline-block', width: '100%' }}>
+                                <Form.Control type="number" id='latitude' placeholder="latitude" step="0.00000001" onChange={this.handleChange} value={this.state.unlock_amount} className="form-input" ></Form.Control>
+                            </div>
+                            <div className="dark-form" style={{ marginTop: 20, display: 'inline-block', width: '100%' }}>
+                                <Form.Control type="number" id='longitude' placeholder="longitude" step="0.00000001" onChange={this.handleChange} value={this.state.unlock_amount} className="form-input" ></Form.Control>
+                            </div>
+                            <div className="dark-form" style={{ marginTop: 20, display: 'inline-block', width: '100%' }}>
+                                <Form.Control type="number" id='areaRadius' placeholder="Area Radius" min="0" step="0.01" onChange={this.handleChange} value={this.state.unlock_amount} className="form-input" ></Form.Control>
+                            </div>
+                            <div className="dark-form" style={{ marginTop: 20, display: 'inline-block', width: '100%' }}>
+                                <Form.Control type="number" id='maxSpeed' placeholder="Max. Speed Allowed" min="0" step="0.01" onChange={this.handleChange} value={this.state.unlock_amount} className="form-input" ></Form.Control>
+                            </div>
+                            <Button
+                                className="btn-blue"
+                                type="submit"
+                                disabled={this.state.disabled}
+                                style={{
+                                    padding: 10,
+                                    width: '100%',
+                                    marginTop: 15
+                                }}
+                            > {this.state.disabled ? <img src="../assets/images/spinner.gif" width="30" /> : <strong>Add Business</strong>}
+                            </Button>
+                        </Form>
+                    </Col>
+                    <Col lg={6} xs={12}>
+                        <strong>Current business</strong>
+                        {this.props.business.length > 0 ?
+                            <Table borderless responsive>
+                                <tbody>
+                                    {this.props.business.map((info, index) => {
+                                        return (
+                                            <tr>
+                                                <td><i className="material-icons" style={{ color: 'darkcyan' }}>business</i></td>
+                                                <td className="hidden" style={{ width: 200 }}><strong>{(info.latitude || 0).toFixed(8)}</strong><br /><strong style={{ color: '#a1a1a1' }}>{(info.longitude || 0).toFixed(8)}</strong></td>
+                                                <td><strong style={{ color: info.status ? '#15CD72' : 'red' }}>{info.name}</strong><br /><strong style={{ color: '#a1a1a1' }}>{this.formatDate(info.dateAdded)}</strong></td>
+                                                <td><div className="circle-btn"><i className="material-icons">mode_edit</i></div><div className="circle-btn"><i onClick={() => { this.deleteBusiness(info.businessId) }} className="material-icons">delete</i></div></td>
+                                            </tr>
+                                        )
+                                    })
+                                    }
+                                </tbody>
+                            </Table>
+                            :
+                            <Card.Body style={{ backgroundColor: '#f3f5f7', textAlign: 'center', borderRadius: 5, paddingTop: 50, paddingBottom: 50, marginTop: 20 }}>
+                                <img src='../assets/images/notfound.png' width={150} style={{ marginBottom: 20 }} /><br />
+                                <strong style={{ color: '#a1a1a1' }}>There's no records found</strong>
+                            </Card.Body>
+                        }
+                    </Col>
+                </Row>
+            )
+
+            case 3: return (
+                <Row>
+                    <Col lg={6} xs={12}>
+                        <strong>Add Parking Lot</strong>
+                        <Form onSubmit={this.addParking}>
+                            <div className="dark-form" style={{ marginTop: 20, display: 'inline-block', width: '100%' }}>
+                                <Form.Control type="text" id='businessId' placeholder="Business Id" onChange={this.handleChange} value={this.state.businessId} className="form-input" ></Form.Control>
+                            </div>
+                            <div className="dark-form" style={{ marginTop: 20, display: 'inline-block', width: '100%' }}>
+                                <Form.Control type="number" id='latitude' placeholder="latitude" step="0.00000001" onChange={this.handleChange} value={this.state.latitude} className="form-input" ></Form.Control>
+                            </div>
+                            <div className="dark-form" style={{ marginTop: 20, display: 'inline-block', width: '100%' }}>
+                                <Form.Control type="number" id='longitude' placeholder="longitude" step="0.00000001" onChange={this.handleChange} value={this.state.longitude} className="form-input" ></Form.Control>
+                            </div>
+                            <div className="dark-form" style={{ marginTop: 20, display: 'inline-block', width: '100%' }}>
+                                <Form.Control type="number" id='parkNum' placeholder="Parking Number" min="0" step="1" onChange={this.handleChange} value={this.state.parkNum} className="form-input" ></Form.Control>
+                            </div>
+                            <Button
+                                className="btn-blue"
+                                type="submit"
+                                disabled={this.state.disabled}
+                                style={{
+                                    padding: 10,
+                                    width: '100%',
+                                    marginTop: 15
+                                }}
+                            > {this.state.disabled ? <img src="../assets/images/spinner.gif" width="30" /> : <strong>Add Parking Lot</strong>}
+                            </Button>
+                        </Form>
+                    </Col>
+                    <Col lg={6} xs={12}>
+                        <Row>
+                            <Col>
+                                <strong>Current Parkng Lots</strong>
+                                {this.state.parking.length > 0 ?
+                                    <Table borderless responsive>
+                                        <tbody>
+                                            {this.state.parking.map((info, index) => {
+                                                return (
+                                                    <tr>
+                                                        <td><i className="material-icons" style={{ color: 'darkcyan' }}>business</i></td>
+                                                        <td className="hidden" style={{ width: 200 }}><strong>{(info.latitude || 0).toFixed(8)}</strong><br /><strong style={{ color: '#a1a1a1' }}>{(info.longitude || 0).toFixed(8)}</strong></td>
+                                                        <td><strong style={{ color: info.status ? '#15CD72' : 'red' }}>Paking lot: {info.parkNum}</strong><br /><strong style={{ color: '#a1a1a1' }}>{this.formatDate(info.dateAdded)}</strong></td>
+                                                        <td><div className="circle-btn"><i className="material-icons">mode_edit</i></div><div className="circle-btn"><i onClick={() => { this.deleteParking(info.parkId) }} className="material-icons">delete</i></div></td>
+                                                    </tr>
+                                                )
+                                            })
+                                            }
+                                        </tbody>
+                                    </Table>
+                                    :
+                                    <Card.Body style={{ backgroundColor: '#f3f5f7', textAlign: 'center', borderRadius: 5, paddingTop: 50, paddingBottom: 50, marginTop: 20 }}>
+                                        <img src='../assets/images/notfound.png' width={150} style={{ marginBottom: 20 }} /><br />
+                                        <strong style={{ color: '#a1a1a1' }}>There's no records found</strong>
+                                    </Card.Body>
+                                }
+                            </Col>
+                            <Col lg={12}>
+                                <strong>Current business</strong>
+                                {this.props.business.length > 0 ?
+                                    <Table borderless responsive>
+                                        <tbody>
+                                            {this.props.business.map((info, index) => {
+                                                return (
+                                                    <tr onClick={() => {
+                                                        let { businessId } = info;
+                                                        this.setState({
+                                                            businessId
+                                                        })
+                                                    }}
+                                                        style={{
+                                                            cursor: 'pointer'
+                                                        }}
+                                                    >
+                                                        <td>{info.businessId}</td>
+                                                        <td>{info.name}</td>
+                                                    </tr>
+                                                )
+                                            })
+                                            }
+                                        </tbody>
+                                    </Table>
+                                    :
+                                    <Card.Body style={{ backgroundColor: '#f3f5f7', textAlign: 'center', borderRadius: 5, paddingTop: 50, paddingBottom: 50, marginTop: 20 }}>
+                                        <img src='../assets/images/notfound.png' width={150} style={{ marginBottom: 20 }} /><br />
+                                        <strong style={{ color: '#a1a1a1' }}>There's no records found</strong>
+                                    </Card.Body>
+                                }
+                            </Col>
+                        </Row>
+                    </Col>
+                </Row>
+            )
+
+            case 4: return (
+                <Row>
                     <Col lg={4} xs={12}>
                         <Button
                             style={{
@@ -650,6 +847,75 @@ export default class Settings extends Component {
             )
         }
     }
+    getParking() {
+        fetch('/api/admin/parking')
+            .then(res => res.json())
+            .then(data => {
+                console.log(data)
+                let { success, parking } = data
+                if (!success) {
+                    this.notify('Network Error', success)
+                } else {
+                    this.setState({
+                        parking
+                    })
+                }
+            })
+    }
+    deleteParking(id) {
+        if (confirm('Are you sure you want to delete this Item?')) {
+            fetch(`/api/admin/parking`, {
+                method: 'DELETE',
+                body: JSON.stringify({
+                    parkId: id
+                }),
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json',
+                    'authorization': localStorage.getItem('authtoken')
+                }
+            })
+                .then(res => res.json())
+                .then(data => {
+                    let { success, msg } = data
+                    this.notify(msg, success)
+                    if (success)
+                        this.getParking()
+                })
+        } else {
+            this.notify('Action canceled', false)
+        }
+    }
+    addParking(e) {
+        e.preventDefault()
+        this.setState({
+            disabled: true
+        }, () => {
+            let { businessId, parkNum, latitude, longitude } = this.state
+            fetch('/api/admin/parking', {
+                method: 'POST',
+                body: JSON.stringify({
+                    businessId, parkNum, latitude, longitude
+                }),
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json',
+                    'authorization': localStorage.getItem('authtoken')
+                }
+            })
+                .then(res => res.json())
+                .then(data => {
+                    let { success, msg } = data
+                    this.notify(msg, success)
+                    this.setState({
+                        disabled: false
+                    }, () => {
+                        if (success)
+                            this.getParking()
+                    })
+                })
+        })
+    }
     render() {
         return (
             <Container>
@@ -660,7 +926,9 @@ export default class Settings extends Component {
                         }}>
                             <Button onClick={() => { this.setState({ index: 0 }) }} className={this.state.index == 0 ? 'btn-tab-active' : 'btn-tab'}><strong>Profile</strong></Button>
                             <Button onClick={() => { this.setState({ index: 1 }) }} className={this.state.index == 1 ? 'btn-tab-active' : 'btn-tab'}><strong>Devices</strong></Button>
-                            <Button onClick={() => { this.setState({ index: 2 }) }} className={this.state.index == 2 ? 'btn-tab-active' : 'btn-tab'}><strong>Account</strong></Button>
+                            <Button onClick={() => { this.setState({ index: 2 }) }} className={this.state.index == 2 ? 'btn-tab-active' : 'btn-tab'}><strong>Business</strong></Button>
+                            <Button onClick={() => { this.setState({ index: 3 }) }} className={this.state.index == 3 ? 'btn-tab-active' : 'btn-tab'}><strong>Parking</strong></Button>
+                            <Button onClick={() => { this.setState({ index: 4 }) }} className={this.state.index == 4 ? 'btn-tab-active' : 'btn-tab'}><strong>Account</strong></Button>
                         </div>
                     </Col>
                 </Row>
