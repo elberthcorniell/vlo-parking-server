@@ -59,10 +59,9 @@ class Backoffice extends Component {
                     if (callback) {
                         callback()
                     }
-                    const { username } = data
+                    const { username, email, userId } = data
                     this.setState({
-                        username,
-                        token: data['2fa']
+                        username, email, userId
                     })
                 }
             })

@@ -12,6 +12,7 @@ const connection = dbConnection();
 const nodemailer = require('nodemailer');
 const crypto = require('crypto')
 const http = require('http')
+const uuid = require('uuid')
 
 var transporter = nodemailer.createTransport({
   service: 'gmail',
@@ -20,10 +21,6 @@ var transporter = nodemailer.createTransport({
     pass: 'Bitnation0910'
   }
 });
-function generateRandomID() {
-  return Math.random().toString(36).substring(10);
-}
-
 setInterval(() => {
   connection.query("SELECT 1")
 }, 5000)
@@ -33,8 +30,9 @@ router.post('/register', (req, res) => {
   if (!isValid) {
     return res.json(errors);
   } else {
-    var { username, password, email } = req.body
-    var userId = generateRandomID()
+    let { username, password, email } = req.body
+    let userId = uuid.v4()
+    console.log(username, password, email)
     connection.query('SELECT * FROM user WHERE email = ' + mysql.escape(req.body.email2), async (err, result) => {
       if (result.length >= 1) {
         return res.json({ email_err: "Email already exists" });
@@ -97,11 +95,9 @@ router.post("/login", (req, res) => {
       return res.json({ username_err: "Username not found" });
     } else {
       bcrypt.compare(password, result[0].password).then(isMatch => {
-        if (isMatch) {
-          let { userId, username } = result[0]
+        if (isMatch) {          let { userId, username } = result[0]
           const payload = {
-            userId,
-            username
+            ...result[0]
           };
           // Sign token
           jwt.sign(payload, keys.secretOrKey,
@@ -223,8 +219,8 @@ router.post("/email/", (req, res) => {
             <tbody>
               <tr>
                 <td align="center" valign="middle" style="padding: 33px 0;">
-                  <a href="https://www.inverte.do/" target="_blank"><img
-                      src="https://inverte.do/assets/images/logo-text-dark.png" width="232" alt="inverte" style="border: 0;"
+                  <a href="https://vlo.bitnation.do/" target="_blank"><img
+                      src="https://vlo.bitnation.do/assets/images/logo.png" width="232" alt="inverte" style="border: 0;"
                       class="CToWUd"></a>
                 </td>
               </tr>

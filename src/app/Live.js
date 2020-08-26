@@ -57,8 +57,16 @@ export default class Live extends Component {
                 this.setState({
                     valetLocation: {
                         lat: latitude,
-                        lng: longitude,
-                        speed
+                        lng: longitude
+                    }
+                })
+            })
+            socket.on('userLocation', data => {
+                let { latitude, longitude, speed } = data
+                this.setState({
+                    userLocation: {
+                        lat: latitude,
+                        lng: longitude
                     }
                 })
             })

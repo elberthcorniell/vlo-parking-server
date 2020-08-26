@@ -126,6 +126,7 @@ export default class Permissions extends Component {
         }, () => {
             if (this.state.type != 'type') {
                 let { userId, username, businessId } = this.state
+                console.log(userId, username, businessId)
                 fetch('/api/admin/valet', {
                     method: 'POST',
                     body: JSON.stringify({
@@ -152,6 +153,9 @@ export default class Permissions extends Component {
                 this.notify('Invalid Device Type', false)
             }
         })
+    }
+    getValets(){
+
     }
     getUsers() {
         fetch('/api/admin/user', {
@@ -237,13 +241,13 @@ export default class Permissions extends Component {
                         <strong>Add valet</strong>
                         <Form onSubmit={this.setAsValet}>
                             <div className="dark-form" style={{ marginTop: 20, display: 'inline-block', width: '100%' }}>
-                                <Form.Control type="text" id='userId' placeholder="userId" value={this.state.userId} className="form-input" ></Form.Control>
+                                <Form.Control type="text" id='userId' onChange={this.handleChange} placeholder="userId" value={this.state.userId} className="form-input" ></Form.Control>
                             </div>
                             <div className="dark-form" style={{ marginTop: 10, display: 'inline-block', width: '100%' }}>
-                                <Form.Control type="text" id='username' placeholder="username" value={this.state.username} className="form-input" ></Form.Control>
+                                <Form.Control type="text" id='username' onChange={this.handleChange} placeholder="username" value={this.state.username} className="form-input" ></Form.Control>
                             </div>
                             <div className="dark-form" style={{ marginTop: 10, display: 'inline-block', width: '100%' }}>
-                                <Form.Control type="text" id='businessId' placeholder="username" value={this.state.businessId} className="form-input" ></Form.Control>
+                                <Form.Control type="text" id='businessId' onChange={this.handleChange} placeholder="username" value={this.state.businessId} className="form-input" ></Form.Control>
                             </div>
                             <Button
                                 className="btn-blue"
@@ -341,8 +345,7 @@ export default class Permissions extends Component {
                             float: 'right'
                         }}>
                             <Button onClick={() => { this.setState({ index: 0 }) }} className={this.state.index == 0 ? 'btn-tab-active' : 'btn-tab'}><strong>Valets</strong></Button>
-                            <Button onClick={() => { this.setState({ index: 1 }) }} className={this.state.index == 1 ? 'btn-tab-active' : 'btn-tab'}><strong>Admins</strong></Button>
-                        </div>
+                         </div>
                     </Col>
                 </Row>
                 {this.areaToShow(this.state.index)}

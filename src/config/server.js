@@ -8,6 +8,8 @@ const uuid = require('uuid')
 const upload = require('express-fileupload')
 const dbConnection = require("./dbconnection");
 const connection = dbConnection();
+const haversine = require('haversine')
+const axios = require('axios')
 var mysql = require('mysql');
 app.set('port', process.env.port || 3001);
 app.use(express.static(path.join(__dirname, '../public')));
@@ -130,7 +132,6 @@ io.on('connection', socket => {
   })
   socket.on('valetLocation', (req, res) => {
     let { latitude, longitude, valetId, speed, tripIds } = req
-    console.log("Valet location", req)
     connection.query("INSERT INTO location SET ?", {
       latitude,
       longitude,
@@ -149,7 +150,7 @@ io.on('connection', socket => {
     })
   })
   socket.on('userLocation', (req, res) => {
-    let { latitude, longitude, userId, speed } = req
+    let { latitude, longitude, userId, speed, tripId } = req
     connection.query("INSERT INTO location SET ?", {
       latitude,
       longitude,
@@ -159,9 +160,7 @@ io.on('connection', socket => {
     }, err => {
       if (!err) {
         socket.emit('Message', "OK")
-        Object.keys(socket.rooms).map(trip => {
-          io.sockets.in(trip).emit('userLocation', req)
-        })
+        io.sockets.in(tripId).emit('userLocation', req)
       } else {
         res("FAIL")
       }
@@ -204,23 +203,115 @@ io.on('connection', socket => {
     }
   })
   socket.on('setAsParked', (req, res) => {
-    let { tripId, parkId } = req
-    // verify parking lot distance first
-    connection.query("INSERT INTO parkhistory SET ?", {
-      tripId, parkId
-    },err=>{
-      console.log(err)
-      if(err){
+    let { tripId, parkId, valetId } = req
+    connection.query(`SELECT * FROM trip WHERE tripId = ${mysql.escape(tripId)}`, (err, result) => {
+      if (err) {
+        console.log(err)
         res("FAIL")
-      }else{
-        res("OK")
-        io.sockets.in(tripId).emit('carParked',"OK") // On carParked on vallet app 
-        setEvent(tripId, `Car Successfully Parked`, 1)
+      } else {
+        let { valetId, userId, carId, keyId, dateStart, dateEnd } = result[0]
+        connection.query(`
+      SELECT latitude, longitude FROM park WHERE parkId = ${mysql.escape(parkId)};
+      SELECT latitude, longitude FROM location WHERE type = 'valet' AND entityId = ${mysql.escape(valetId)} AND (date > ${mysql.escape(dateStart)}) AND (date < ${dateEnd ? mysql.escape(dateEnd) : 'DATE_ADD(NOW(),INTERVAL 1 YEAR)'}) ORDER BY date DESC LIMIT 1;
+      SELECT maxDistance FROM distances WHERE concept = 'carAndPark';
+    `, (err, result) => {
+          if (err) { res && res("FAIL") } else {
+            let start = result[0][0]
+            let end = result[1][0]
+            let { maxDistance } = result[2][0]
+            let distance = haversine(start, end, { unit: 'meter' })
+            console.log(distance, maxDistance)
+            if (distance <= maxDistance) {
+              connection.query("INSERT INTO parkhistory SET ?", {
+                tripId, parkId
+              }, err => {
+                console.log(err)
+                if (err) {
+                  res && res("FAIL")
+                } else {
+                  res && res("OK")
+                  io.sockets.in(tripId).emit('carParked', "OK") // On carParked on vallet app 
+                  setEvent(tripId, `Car successfully parked`, 1)
+                  connection.query(`SELECT userId FROM trip WHERE tripId = ${mysql.escape(tripId)}`, (err, result) => {
+                    let { userId } = result[0]
+                    notify(userId, undefined, 'Car parked', 'Car successfully parked', undefined)
+                  })
+                }
+              })
+            } else {
+              res && res({
+                success: false,
+                msg: 'Distance from parking is above min distance'
+              })
+            }
+          }
+        })
+      }
+    })
+  })
+  socket.on('askForCar', (req, res) => {
+    let { tripId } = req
+    connection.query(`SELECT * FROM events WHERE tripId = ${mysql.escape(tripId)} AND description = 'User ask for car'`, (err, result) => {
+      if (err || result.length > 0) {
+        res && res("FAIL")
+      } else {
+        connection.query(`SELECT valetId FROM trip WHERE tripId = ${mysql.escape(tripId)}`, (err, result) => {
+          if (err) {
+            console.log(err)
+            res && res("FAIL")
+          } else {
+            let { valetId } = result[0]
+            setEvent(tripId, 'User ask for car', 1)
+            notify(undefined, valetId, 'User ask for car', 'The user needs the car right now', undefined)
+            res && res("OK")
+          }
+        })
+      }
+    })
+  })
+  socket.on('isAsked', (req, res) => {
+    let { tripId } = req
+    connection.query(`SELECT * FROM events WHERE tripId = ${mysql.escape(tripId)} AND description = 'User ask for car'`, (err, result) => {
+      console.log(err, result)
+      if (err || result.length > 0) {
+        res && res(true)
+      } else {
+        res && res(false)
+      }
+    })
+  })
+  socket.on('carWithOwner', (req, res) => {
+    let { tripId } = req
+    connection.query(`SELECT * FROM events WHERE tripId = ${mysql.escape(tripId)} AND description = 'User ask for car'`, (err, result) => {
+      if (!err || result.length > 0) {
+        connection.query(`UPDATE trip SET ? WHERE tripId = ${mysql.escape(tripId)};
+        UPDATE parkhistory SET ? WHERE tripId = ${mysql.escape(tripId)}`,
+          [{ dateEnd: mysql.raw('CURRENT_TIMESTAMP()') }, {
+            dateOut: mysql.raw('CURRENT_TIMESTAMP()')
+          }], err => {
+            console.log(err)
+            res(err ? "FAIL" : "OK")
+            if (!err) {
+              io.sockets.in(tripId).emit('tripEnded', { tripId })
+              connection.query(`SELECT userId, valetId FROM trip WHERE tripId = ${mysql.escape(tripId)}`, (err, result) => {
+                if (err) {
+                  res && res("FAIL")
+                } else {
+                  let { userId, valetId } = result[0]
+                  setEvent(tripId, 'Trip Ended', 1)
+                  notify(userId, undefined, 'Trip ended', 'You car is now with you, this trip ended', undefined)
+                  notify(undefined, valetId, 'Trip ended', 'Thank you for your services!, this trip ended', undefined)
+                  res && res("OK")
+                }
+              })
+            }
+          })
+      } else {
+        res("FAIL")
       }
     })
   })
 });
-
 function setEvent(tripId, description, type) { //push notifications
   connection.query("INSERT INTO events SET ?", {
     eventId: uuid.v4(),
@@ -229,7 +320,26 @@ function setEvent(tripId, description, type) { //push notifications
     type //0 = Warning, 1 = Normal, NULL = Critic 
   })
 }
-
+function notify(userId, valetId, title, body, data) {
+  console.log(userId, valetId, title, body, data)
+  connection.query(`SELECT pushToken FROM ${userId ? 'user' : 'valet'} WHERE ${userId ? 'userId' : 'valetId'} = ${mysql.escape(userId || valetId)}`, (err, result) => {
+    let { pushToken } = result[0]
+    const message = {
+      to: pushToken,
+      sound: 'default',
+      title,
+      body,
+      data: data || { data: 'goes here' },
+    };
+    axios.post('https://exp.host/--/api/v2/push/send', message, {
+      headers: {
+        Accept: 'application/json',
+        'Accept-encoding': 'gzip, deflate',
+        'Content-Type': 'application/json',
+      }
+    }).then(data => console.log(data.data))
+  })
+}
 module.exports = {
   app, io
 };

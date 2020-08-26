@@ -6,7 +6,6 @@ var mysql = require('mysql');
 const keys = require("../../config/keys");
 const auth = require("../../config/auth");
 const nodemailer = require('nodemailer');
-const crypto = require('crypto')
 const uuid = require('uuid')
 setInterval(() => {
     connection.query("SELECT 1")
@@ -72,7 +71,7 @@ router.get("/trip/:carId/:keyId", auth.checkToken, (req, res) => {
         qrData: JSON.stringify({ tripId: uuid.v4(), carId, keyId, valetId, businessId })
     })
 })
-router.post("/valet", auth.checkToken, (req, res) => {
+router.post("/valet", (req, res) => {
     let { userId, username, businessId } = req.body
     connection.query(`SELECT * FROM user WHERE userId = ${mysql.escape(userId)} AND username = ${mysql.escape(username)}`, (err, result) => {
         if (result.length > 0 && !err) {
@@ -84,6 +83,8 @@ router.post("/valet", auth.checkToken, (req, res) => {
                 businessId,
                 valetId: uuid.v4()
             }, err => {
+                console.log(err)
+
                 res.json({
                     success: err ? false : true,
                     msg: err ? 'Error adding Valet' : 'Valet successfully added'
@@ -144,11 +145,21 @@ router.get('/trips/:businessId', auth.checkToken, (req, res) => {
 })
 router.get('/trips/valet/:valetId', auth.checkToken, (req, res) => {
     let { valetId } = req.params
-    connection.query(`SELECT * FROM trip JOIN user ON user.userId = trip.userId WHERE valetId = ${mysql.escape(valetId)}`, (err, result) => {
+    connection.query(`SELECT * FROM trip JOIN user ON user.userId = trip.userId WHERE valetId = ${mysql.escape(valetId)} ORDER by dateStart DESC`, (err, result) => {
         res.json({
             success: err ? false : true,
             msg: err ? err.message : "OK",
             valetTrips: result || undefined
+        })
+    })
+})
+router.get('/trips/user/:userId', auth.checkToken, (req, res) => {
+    let { userId } = req.params
+    connection.query(`SELECT * FROM trip JOIN user ON user.userId = trip.userId WHERE trip.userId = ${mysql.escape(userId)} ORDER by dateStart DESC`, (err, result) => {
+       res.json({
+            success: err ? false : true,
+            msg: err ? err.message : "OK",
+            userTrips: result || undefined
         })
     })
 })
@@ -192,6 +203,26 @@ router.delete("/parking", auth.checkToken, (req, res) => {
         })
     })
 })
-
+router.post('/pushToken', auth.checkToken, (req, res) => {
+    let { userId, valetId, pushToken } = req.body
+    connection.query(`UPDATE ${userId?'user':'valet'} SET ? WHERE ${userId?'userId':'valetId'} = ${mysql.escape(userId||valetId)}`,{
+        pushToken
+    }, err=>{
+        res.json({
+            success: err ? false : true,
+            msg: err ? 'Error setting push token' : 'Push token successfully added'
+        })
+    })
+})
+router.get('/events/:tripId', auth.checkToken, (req, res)=>{
+    connection.query(`SELECT * FROM events WHERE tripId = ${mysql.escape(tripId)}`, (err, result)=>{
+        if(err){res.json({success: false})}else{
+            res.json({
+                success: true,
+                events: result
+            })
+        }
+    })
+})
 module.exports = router;
 
