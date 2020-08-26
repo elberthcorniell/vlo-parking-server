@@ -11,7 +11,7 @@ setInterval(() => {
     connection.query("SELECT 1")
 }, 5000)
 router.get("/device", (req, res) => {
-    connection.query("SELECT * FROM device JOIN deviceType ON deviceType.typeId = device.type ORDER BY dateAdded DESC", (err, result) => {
+    connection.query("SELECT * FROM device JOIN devicetype ON devicetype.typeId = device.type ORDER BY dateAdded DESC", (err, result) => {
         res.json({
             success: err ? false : true,
             devices: err ? undefined : result
@@ -39,7 +39,7 @@ router.delete("/device", auth.checkToken, (req, res) => {
     })
 })
 router.get("/device/type", (req, res) => {
-    connection.query("SELECT * FROM deviceType", (err, result) => {
+    connection.query("SELECT * FROM devicetype", (err, result) => {
         res.json({
             success: err ? false : true,
             deviceType: err ? undefined : result
@@ -135,7 +135,7 @@ router.delete("/business", auth.checkToken, (req, res) => {
 })
 router.get('/trips/:businessId', auth.checkToken, (req, res) => {
     let { businessId } = req.params
-    connection.query(`SELECT * FROM trip JOIN user ON user.userId = trip.userId WHERE businessId = ${mysql.escape(businessId)}`, (err, result) => {
+    connection.query(`SELECT * FROM trip JOIN user ON user.userId = trip.userId WHERE businessId = ${mysql.escape(businessId)} ORDER BY dateStart DESC`, (err, result) => {
         res.json({
             success: err ? false : true,
             msg: err ? err.message : "OK",
@@ -156,7 +156,7 @@ router.get('/trips/valet/:valetId', auth.checkToken, (req, res) => {
 router.get('/trips/user/:userId', auth.checkToken, (req, res) => {
     let { userId } = req.params
     connection.query(`SELECT * FROM trip JOIN user ON user.userId = trip.userId WHERE trip.userId = ${mysql.escape(userId)} ORDER by dateStart DESC`, (err, result) => {
-       res.json({
+        res.json({
             success: err ? false : true,
             msg: err ? err.message : "OK",
             userTrips: result || undefined
@@ -205,18 +205,19 @@ router.delete("/parking", auth.checkToken, (req, res) => {
 })
 router.post('/pushToken', auth.checkToken, (req, res) => {
     let { userId, valetId, pushToken } = req.body
-    connection.query(`UPDATE ${userId?'user':'valet'} SET ? WHERE ${userId?'userId':'valetId'} = ${mysql.escape(userId||valetId)}`,{
+    connection.query(`UPDATE ${userId ? 'user' : 'valet'} SET ? WHERE ${userId ? 'userId' : 'valetId'} = ${mysql.escape(userId || valetId)}`, {
         pushToken
-    }, err=>{
+    }, err => {
         res.json({
             success: err ? false : true,
             msg: err ? 'Error setting push token' : 'Push token successfully added'
         })
     })
 })
-router.get('/events/:tripId', auth.checkToken, (req, res)=>{
-    connection.query(`SELECT * FROM events WHERE tripId = ${mysql.escape(tripId)}`, (err, result)=>{
-        if(err){res.json({success: false})}else{
+router.get('/events/:tripId', auth.checkToken, (req, res) => {
+    let { tripId } = req.params
+    connection.query(`SELECT * FROM events WHERE tripId = ${mysql.escape(tripId)} ORDER by date DESC`, (err, result) => {
+        if (err) { res.json({ success: false }) } else {
             res.json({
                 success: true,
                 events: result

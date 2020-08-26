@@ -272,7 +272,6 @@ io.on('connection', socket => {
   socket.on('isAsked', (req, res) => {
     let { tripId } = req
     connection.query(`SELECT * FROM events WHERE tripId = ${mysql.escape(tripId)} AND description = 'User ask for car'`, (err, result) => {
-      console.log(err, result)
       if (err || result.length > 0) {
         res && res(true)
       } else {
