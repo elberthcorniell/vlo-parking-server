@@ -84,7 +84,6 @@ router.post("/valet", (req, res) => {
                 valetId: uuid.v4()
             }, err => {
                 console.log(err)
-
                 res.json({
                     success: err ? false : true,
                     msg: err ? 'Error adding Valet' : 'Valet successfully added'
@@ -223,6 +222,51 @@ router.get('/events/:tripId', auth.checkToken, (req, res) => {
                 events: result
             })
         }
+    })
+})
+router.post("/admin", (req, res) => {
+    let { userId, username, businessId } = req.body
+    connection.query(`SELECT * FROM user WHERE userId = ${mysql.escape(userId)} AND username = ${mysql.escape(username)}`, (err, result) => {
+        if (result.length > 0 && !err) {
+            let { username, password, email } = result[0]
+            connection.query("INSERT INTO admin SET ?", {
+                username,
+                password,
+                email,
+                adminId: uuid.v4()
+            }, err => {
+                console.log(err)
+                res.json({
+                    success: err ? false : true,
+                    msg: err ? 'Error adding Valet' : 'Valet successfully added'
+                })
+            })
+        }
+    })
+})
+router.get('/valet', (req, res) => {
+    connection.query("SELECT * FROM valet", (err, result) => {
+        res.json({
+            success: true,
+            valets: result || []
+        })
+    })
+})
+router.get('/admin', (req, res) => {
+    connection.query("SELECT * FROM admin", (err, result) => {
+        res.json({
+            success: true,
+            admins: result || []
+        })
+    })
+})
+router.get('/metrics/:type', (req, res) => {
+    let { type } = req.params
+    connection.query(`SELECT * FROM metrics WHERE type=${mysql.escape(type)} ORDER BY date DESC`, (err, result) => {
+        res.json({
+            success: true,
+            metrics: result || []
+        })
     })
 })
 module.exports = router;

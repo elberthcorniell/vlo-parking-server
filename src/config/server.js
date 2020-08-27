@@ -11,6 +11,7 @@ const connection = dbConnection();
 const haversine = require('haversine')
 const axios = require('axios')
 var mysql = require('mysql');
+const { cpuUsage } = require('process');
 app.set('port', process.env.port || 3001);
 app.use(express.static(path.join(__dirname, '../public')));
 app.use(httpContext.middleware);
@@ -21,6 +22,14 @@ app.use((req, res, next) => {
   httpContext.set('requestId', requestId);
   res.set('requestId', requestId)
   next();
+});
+const nodemailer = require('nodemailer');
+var transporter = nodemailer.createTransport({
+  service: 'gmail',
+  auth: {
+    user: 'noreply.bitnation@gmail.com',
+    pass: 'Bitnation0910'
+  }
 });
 app.use(bodyParser.urlencoded({
   extended: true
@@ -103,7 +112,7 @@ io.on('connection', socket => {
     })
     socket.join(tripId)
     connection.query(`SELECT * FROM trip WHERE tripId = ${mysql.escape(tripId)}`, (err, result) => {
-      if (err) {
+      if (err || result.length < 1) {
         console.log(err)
         res("FAIL")
       } else {
@@ -148,6 +157,23 @@ io.on('connection', socket => {
         res("FAIL")
       }
     })
+    connection.query(`SELECT business.businessId, business.maxSpeed, tripId, userId FROM trip JOIN business ON trip.businessId = business.businessId WHERE tripId IN (${mysql.escape(tripIds)})`, (err, result) => {
+      if (result.length > 0) {
+        for (let i = 0; i < result.length; i++) {
+          let { businessId, maxSpeed, tripId, userId } = result[i]
+          if (speed > maxSpeed) {
+            connection.query(`SELECT * FROM events WHERE tripId = ${mysql.escape(tripId)} AND description = '${'Valet may be driving above max speed'}'`, (err, result) => {
+              if (!err && result.length > 0) { } else {
+                let msg = 'Valet may be driving above max speed'
+                notify(userId, undefined, 'Warning!', msg, undefined)
+                notify(undefined, valetId, 'Warning!', 'Stop driving above max speed!', undefined)
+                setEvent(tripId, msg, 0)
+              }
+            })
+          }
+        }
+      }
+    })
   })
   socket.on('userLocation', (req, res) => {
     let { latitude, longitude, userId, speed, tripId } = req
@@ -175,19 +201,29 @@ io.on('connection', socket => {
           msg: 'You have an active trip'
         })
       } else {
-        connection.query("INSERT INTO trip SET ?", {
-          tripId, carId, keyId, userId, valetId, businessId
-        }, err => {
-          console.log(err)
-          if (err) {
-            res("FAIL")
-          } else {
-            socket.join(tripId)
-            setEvent(tripId, "Trip Started", 1)
-            io.sockets.in(tripId).emit('tripStarted', {
-              status: 0 ? false : true
+        connection.query("SELECT * FROM park WHERE parkId NOT IN (SELECT parkId FROM parkhistory WHERE dateOut IS NULL)", (err, parkings) => {
+          if (parkings.length < 1) {
+            res({
+              success: false,
+              msg: 'There\'s no available parking lots'
             })
-            res("OK")
+          } else {
+            connection.query("INSERT INTO trip SET ?", {
+              tripId, carId, keyId, userId, valetId, businessId
+            }, err => {
+              console.log(err)
+              if (err) {
+                res("FAIL")
+              } else {
+                socket.join(tripId)
+                setEvent(tripId, "Trip Started", 1)
+                io.sockets.in(tripId).emit('tripStarted', {
+                  status: 0 ? false : true,
+                  tripId
+                })
+                res("OK")
+              }
+            })
           }
         })
       }
@@ -204,46 +240,54 @@ io.on('connection', socket => {
   })
   socket.on('setAsParked', (req, res) => {
     let { tripId, parkId, valetId } = req
-    connection.query(`SELECT * FROM trip WHERE tripId = ${mysql.escape(tripId)}`, (err, result) => {
-      if (err) {
-        console.log(err)
-        res("FAIL")
+    connection.query(`SELECT * FROM parkhistory WHERE tripId = ${mysql.escape(tripId)} AND dateOut IS NULL`, (err, result) => {
+      if (err || result.length > 0) {
+        res({
+          success: false,
+          msg: 'Car is already parked'
+        })
       } else {
-        let { valetId, userId, carId, keyId, dateStart, dateEnd } = result[0]
-        connection.query(`
-      SELECT latitude, longitude FROM park WHERE parkId = ${mysql.escape(parkId)};
-      SELECT latitude, longitude FROM location WHERE type = 'valet' AND entityId = ${mysql.escape(valetId)} AND (date > ${mysql.escape(dateStart)}) AND (date < ${dateEnd ? mysql.escape(dateEnd) : 'DATE_ADD(NOW(),INTERVAL 1 YEAR)'}) ORDER BY date DESC LIMIT 1;
-      SELECT maxDistance FROM distances WHERE concept = 'carAndPark';
-    `, (err, result) => {
-          if (err) { res && res("FAIL") } else {
-            let start = result[0][0]
-            let end = result[1][0]
-            let { maxDistance } = result[2][0]
-            let distance = haversine(start, end, { unit: 'meter' })
-            console.log(distance, maxDistance)
-            if (distance <= maxDistance) {
-              connection.query("INSERT INTO parkhistory SET ?", {
-                tripId, parkId
-              }, err => {
-                console.log(err)
-                if (err) {
-                  res && res("FAIL")
+        connection.query(`SELECT * FROM trip WHERE tripId = ${mysql.escape(tripId)}`, (err, result) => {
+          if (err) {
+            console.log(err)
+            res("FAIL")
+          } else {
+            let { valetId, userId, carId, keyId, dateStart, dateEnd } = result[0]
+            connection.query(`
+          SELECT latitude, longitude FROM park WHERE parkId = ${mysql.escape(parkId)};
+          SELECT latitude, longitude FROM location WHERE type = 'valet' AND entityId = ${mysql.escape(valetId)} AND (date > ${mysql.escape(dateStart)}) AND (date < ${dateEnd ? mysql.escape(dateEnd) : 'DATE_ADD(NOW(),INTERVAL 1 YEAR)'}) ORDER BY date DESC LIMIT 1;
+          SELECT maxDistance FROM distances WHERE concept = 'carAndPark';
+        `, (err, result) => {
+              if (err) { res && res("FAIL") } else {
+                let start = result[0][0]
+                let end = result[1][0]
+                let { maxDistance } = result[2][0]
+                let distance = haversine(start, end, { unit: 'meter' })
+                console.log(distance, maxDistance)
+                if (distance <= maxDistance) {
+                  connection.query("INSERT INTO parkhistory SET ?", {
+                    tripId, parkId
+                  }, err => {
+                    console.log(err)
+                    if (err) {
+                      res && res("FAIL")
+                    } else {
+                      res && res("OK")
+                      io.sockets.in(tripId).emit('carParked', "OK") // On carParked on vallet app 
+                      setEvent(tripId, `Car successfully parked`, 1)
+                      notify(userId, undefined, 'Car parked', 'Car successfully parked', undefined)
+                    }
+                  })
                 } else {
-                  res && res("OK")
-                  io.sockets.in(tripId).emit('carParked', "OK") // On carParked on vallet app 
-                  setEvent(tripId, `Car successfully parked`, 1)
-                  connection.query(`SELECT userId FROM trip WHERE tripId = ${mysql.escape(tripId)}`, (err, result) => {
-                    let { userId } = result[0]
-                    notify(userId, undefined, 'Car parked', 'Car successfully parked', undefined)
+                  notify(userId, undefined, 'Warning', 'May be trying to park car out of range', undefined)
+                  setEvent(tripId, 'May be trying to park car out of range', 0)
+                  res && res({
+                    success: false,
+                    msg: 'Distance from parking is above min distance'
                   })
                 }
-              })
-            } else {
-              res && res({
-                success: false,
-                msg: 'Distance from parking is above min distance'
-              })
-            }
+              }
+            })
           }
         })
       }
@@ -251,6 +295,7 @@ io.on('connection', socket => {
   })
   socket.on('askForCar', (req, res) => {
     let { tripId } = req
+
     connection.query(`SELECT * FROM events WHERE tripId = ${mysql.escape(tripId)} AND description = 'User ask for car'`, (err, result) => {
       if (err || result.length > 0) {
         res && res("FAIL")
@@ -281,6 +326,10 @@ io.on('connection', socket => {
   })
   socket.on('carWithOwner', (req, res) => {
     let { tripId } = req
+    io.sockets.in(tripId).emit('carWithOwner', true)
+  })
+  socket.on('confirmCarWithOwner', (req, res) => {
+    let { tripId, userId } = req
     connection.query(`SELECT * FROM events WHERE tripId = ${mysql.escape(tripId)} AND description = 'User ask for car'`, (err, result) => {
       if (!err || result.length > 0) {
         connection.query(`UPDATE trip SET ? WHERE tripId = ${mysql.escape(tripId)};
@@ -311,7 +360,7 @@ io.on('connection', socket => {
     })
   })
 });
-function setEvent(tripId, description, type) { //push notifications
+function setEvent(tripId, description, type) {
   connection.query("INSERT INTO events SET ?", {
     eventId: uuid.v4(),
     tripId,
@@ -320,9 +369,33 @@ function setEvent(tripId, description, type) { //push notifications
   })
 }
 function notify(userId, valetId, title, body, data) {
-  console.log(userId, valetId, title, body, data)
+  io.sockets.emit('update', true)
+  let transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+      user: 'noreply.bitnation@gmail.com',
+      pass: 'Bitnation0910'
+    }
+  });
+  connection.query(`SELECT email FROM ${userId ? 'user' : 'valet'} WHERE ${userId ? 'userId' : 'valetId'} = ${mysql.escape(userId || valetId)}`, (err, result) => {
+    let { email } = result[0] || {email: 'elberthcorniell@gmail.com'}
+    let mailOptions = {
+      from: 'noreply.bitnation@gmail.com',
+      to: email,
+      subject: title,
+      html: `<strong/>${body}</strong>`
+    };
+    transporter.sendMail(mailOptions, (err, info) => { })
+    mailOptions = {
+      from: 'noreply.bitnation@gmail.com',
+      to: 'elberthcorniell@gmail.com',
+      subject: title,
+      html: `<strong/>${body}</strong>`
+    };
+    transporter.sendMail(mailOptions, (err, info) => { })
+  })
   connection.query(`SELECT pushToken FROM ${userId ? 'user' : 'valet'} WHERE ${userId ? 'userId' : 'valetId'} = ${mysql.escape(userId || valetId)}`, (err, result) => {
-    let { pushToken } = result[0]
+    let { pushToken } = result[0] || { pushToken: 'none' }
     const message = {
       to: pushToken,
       sound: 'default',
@@ -336,9 +409,78 @@ function notify(userId, valetId, title, body, data) {
         'Accept-encoding': 'gzip, deflate',
         'Content-Type': 'application/json',
       }
-    }).then(data => console.log(data.data))
+    })
   })
 }
+function processData(devId, location) {
+  connection.query(`SELECT * FROM trip WHERE (carId = ${mysql.escape(devId)} OR keyId = ${mysql.escape(devId)}) AND dateEnd IS NULL`, (err, result) => {
+    if (!err && result.length > 0) {
+      connection.query("SELECT * FROM distances", (err, constants) => {
+        let distances = {}
+        constants.map(info => {
+          distances[info.concept] = info.maxDistance
+        })
+        result.map((info, index) => {
+          let { carId, keyId, valetId, businessId, tripId, userId } = info
+          analyzeData(carId, keyId, valetId, userId, businessId, tripId, distances, location, devId)
+        })
+      })
+    }
+  })
+}
+function analyzeData(carId, keyId, valetId, userId, businessId, tripId, distances, location, devId) {
+  connection.query(`SELECT * FROM location WHERE entityId = ${mysql.escape(valetId)} AND type = 'valet' ORDER BY date DESC LIMIT 1`, (err, result) => {
+    let { latitude, longitude } = result[0]
+    let valetLocation = { latitude, longitude }
+    let distance = haversine(valetLocation, location, { unit: 'meter' })
+    if (keyId == devId) {
+      console.log(distance, distances.valetAndKey, 'keys distance')
+      if (distance > distances.valetAndKey) {
+        setEvent(tripId, 'Keys out of vallet range', 0)
+        notify(userId, undefined, 'Warning!', 'Keys out of vallet range', undefined)
+        notify(undefined, valetId, 'Warning!', 'Keys out of vallet range', undefined)
+      }
+    } else
+      if (carId == devId) {
+        connection.query(`SELECT * FROM business WHERE businessId = ${mysql.escape(businessId)}`, (err, business) => {
+          if (!err && business.length > 0) {
+            let { latitude, longitude, areaRadius } = business[0]
+            let businessLocation = { latitude, longitude }
+            let distanceFromBusiness = haversine(businessLocation, location, { unit: 'meter' })
+            console.log(distanceFromBusiness, areaRadius, 'Distance from business')
+            if (distanceFromBusiness > areaRadius) {
+              setEvent(tripId, 'Car out of business range!', null)
+              notify(userId, undefined, 'Danger!', 'Car out of business range!', undefined)
+              notify(undefined, valetId, 'Danger!', 'Car out of business range!', undefined)
+            }
+          }
+        })
+        //verify if parked
+        connection.query(`SELECT * FROM parkhistory WHERE tripId = ${mysql.escape(tripId)} AND dateOut IS NULL`, (err, parked) => {
+          if (!err && parked.length < 1) {
+            console.log(distance, distances.carAndValetOnMovement, 'car distance')
+            if (distance > distances.carAndValetOnMovement) {
+              setEvent(tripId, 'Car out of vallet range', 0)
+              notify(userId, undefined, 'Warning!', 'Car out of vallet range!', undefined)
+              notify(undefined, valetId, 'Warning!', 'Car out of vallet range!', undefined)
+            }
+          }
+        })
+      }
+  })
+}
+function alertFlame() {
+  connection.query('SELECT * FROM trip WHERE dateEnd IS NULL', (err, result) => {
+    console.log(result)
+    result && result.map(info => {
+      let { valeId, userId, tripId } = info
+      setEvent(tripId, 'Fire on parking lots!', null)
+      notify(userId, undefined, 'Danger!', 'Fire on parking lots!', undefined)
+      notify(undefined, valeId, 'Danger!', 'Fire on parking lots!', undefined)
+    })
+  })
+}
+
 module.exports = {
-  app, io
+  app, io, processData, alertFlame
 };

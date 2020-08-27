@@ -4,6 +4,7 @@ import { BrowserRouter as Router, Route } from "react-router-dom";
 import Login from './Login'
 import Outnav from "./Outnav";
 import Register from './Register';
+import Camera from './Camera';
 
 class App extends Component {
     constructor() {
@@ -24,6 +25,9 @@ class App extends Component {
                     setPath={(path) => { this.setState({ path }) }}
                     loggedIn={this.state.loggedIn}
                     langIndex={this.state.langIndex}
+                />}
+                />
+                <Route exact path="/camera" render={(props) => <Camera {...props}
                 />}
                 />
             </Router>

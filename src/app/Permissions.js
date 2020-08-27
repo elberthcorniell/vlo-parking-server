@@ -20,17 +20,22 @@ export default class Permissions extends Component {
             devices: [],
             users: [],
             business: [],
+            valets: [],
+            admins: [],
             index: 0,
             show: false,
         };
         this.handleChange = this.handleChange.bind(this);
         this.setAsValet = this.setAsValet.bind(this);
+        this.setAsAdmin = this.setAsAdmin.bind(this);
         this.handleDropdown = this.handleDropdown.bind(this);
     }
     componentDidMount() {
         this.props.verify(() => {
             this.getActivity()
             this.getUsers()
+            this.getValets()
+            this.getAdmins()
         })
     }
 
@@ -124,38 +129,61 @@ export default class Permissions extends Component {
         this.setState({
             disabled: true
         }, () => {
-            if (this.state.type != 'type') {
-                let { userId, username, businessId } = this.state
-                console.log(userId, username, businessId)
-                fetch('/api/admin/valet', {
-                    method: 'POST',
-                    body: JSON.stringify({
-                        userId, username, businessId
-                    }),
-                    headers: {
-                        'Accept': 'application/json',
-                        'Content-Type': 'application/json',
-                        'authorization': localStorage.getItem('authtoken')
-                    }
-                })
-                    .then(res => res.json())
-                    .then(data => {
-                        let { success, msg } = data
-                        this.notify(msg, success)
-                            this.setState({
-                                disabled: false
-                            }, () => {
-                                if(success)
-                                this.getValets()
-                            })
+            let { userId, username, businessId } = this.state
+            console.log(userId, username, businessId)
+            fetch('/api/admin/valet', {
+                method: 'POST',
+                body: JSON.stringify({
+                    userId, username, businessId
+                }),
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json',
+                    'authorization': localStorage.getItem('authtoken')
+                }
+            })
+                .then(res => res.json())
+                .then(data => {
+                    let { success, msg } = data
+                    this.notify(msg, success)
+                    this.setState({
+                        disabled: false
+                    }, () => {
+                        if (success)
+                            this.getValets()
                     })
-            } else {
-                this.notify('Invalid Device Type', false)
-            }
+                })
         })
     }
-    getValets(){
-
+    setAsAdmin(e) {
+        e.preventDefault()
+        this.setState({
+            disabled: true
+        }, () => {
+            let { userId, username } = this.state
+            fetch('/api/admin/admin', {
+                method: 'POST',
+                body: JSON.stringify({
+                    userId, username
+                }),
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json',
+                    'authorization': localStorage.getItem('authtoken')
+                }
+            })
+                .then(res => res.json())
+                .then(data => {
+                    let { success, msg } = data
+                    this.notify(msg, success)
+                    this.setState({
+                        disabled: false
+                    }, () => {
+                        if (success)
+                            this.getAdmins()
+                    })
+                })
+        })
     }
     getUsers() {
         fetch('/api/admin/user', {
@@ -196,6 +224,26 @@ export default class Permissions extends Component {
                     this.props.update()
                 this.setState({
                     twofa: false
+                })
+            })
+    }
+    getAdmins() {
+        fetch('/api/admin/admin')
+            .then(res => res.json())
+            .then(data => {
+                let { admins } = data
+                this.setState({
+                    admins
+                })
+            })
+    }
+    getValets() {
+        fetch('/api/admin/valet')
+            .then(res => res.json())
+            .then(data => {
+                let { valets } = data
+                this.setState({
+                    valets
                 })
             })
     }
@@ -247,7 +295,7 @@ export default class Permissions extends Component {
                                 <Form.Control type="text" id='username' onChange={this.handleChange} placeholder="username" value={this.state.username} className="form-input" ></Form.Control>
                             </div>
                             <div className="dark-form" style={{ marginTop: 10, display: 'inline-block', width: '100%' }}>
-                                <Form.Control type="text" id='businessId' onChange={this.handleChange} placeholder="username" value={this.state.businessId} className="form-input" ></Form.Control>
+                                <Form.Control type="text" id='businessId' onChange={this.handleChange} placeholder="businessId" value={this.state.businessId} className="form-input" ></Form.Control>
                             </div>
                             <Button
                                 className="btn-blue"
@@ -330,10 +378,139 @@ export default class Permissions extends Component {
                                     </Card.Body>
                                 }
                             </Col>
+                            <Col lg={12}>
+                                <strong>Current valets</strong>
+                                {this.state.valets.length > 0 ?
+                                    <Table borderless responsive>
+                                        <tbody>
+                                            {this.state.valets.map((info, index) => {
+                                                return (
+                                                    <tr onClick={() => {
+                                                        let { businessId } = info;
+                                                        this.setState({
+                                                            businessId
+                                                        })
+                                                    }}
+                                                        style={{
+                                                            cursor: 'pointer'
+                                                        }}
+                                                    >
+                                                        <td>{info.username}</td>
+                                                        <td>{info.email}</td>
+                                                    </tr>
+                                                )
+                                            })
+                                            }
+                                        </tbody>
+                                    </Table>
+                                    :
+                                    <Card.Body style={{ backgroundColor: '#f3f5f7', textAlign: 'center', borderRadius: 5, paddingTop: 50, paddingBottom: 50, marginTop: 20 }}>
+                                        <img src='../assets/images/notfound.png' width={150} style={{ marginBottom: 20 }} /><br />
+                                        <strong style={{ color: '#a1a1a1' }}>There's no records found</strong>
+                                    </Card.Body>
+                                }
+                            </Col>
+
                         </Row>
                     </Col>
                 </Row>
             )
+            case 1: return (
+                <Row>
+                    <Col lg={6} xs={12}>
+                        <strong>Add valet</strong>
+                        <Form onSubmit={this.setAsAdmin}>
+                            <div className="dark-form" style={{ marginTop: 20, display: 'inline-block', width: '100%' }}>
+                                <Form.Control type="text" id='userId' onChange={this.handleChange} placeholder="userId" value={this.state.userId} className="form-input" ></Form.Control>
+                            </div>
+                            <div className="dark-form" style={{ marginTop: 10, display: 'inline-block', width: '100%' }}>
+                                <Form.Control type="text" id='username' onChange={this.handleChange} placeholder="username" value={this.state.username} className="form-input" ></Form.Control>
+                            </div>
+                            <Button
+                                className="btn-blue"
+                                type="submit"
+                                disabled={this.state.disabled}
+                                style={{
+                                    padding: 10,
+                                    width: '100%',
+                                    marginTop: 15
+                                }}
+                            > {this.state.disabled ? <img src="../assets/images/spinner.gif" width="30" /> : <strong>Set As Admin</strong>}
+                            </Button>
+                        </Form>
+                    </Col>
+                    <Col lg={6} xs={12}>
+                        <Row>
+                            <Col lg={12}>
+                                <strong>Current users</strong>
+                                {this.state.users.length > 0 ?
+                                    <Table borderless responsive>
+                                        <tbody>
+                                            {this.state.users.map((info, index) => {
+                                                return (
+                                                    <tr onClick={() => {
+                                                        let { userId, username } = info;
+                                                        this.setState({
+                                                            userId, username
+                                                        })
+                                                    }}
+                                                        style={{
+                                                            cursor: 'pointer'
+                                                        }}
+                                                    >
+                                                        <td>{info.userId}</td>
+                                                        <td>{info.username}</td>
+                                                    </tr>
+                                                )
+                                            })
+                                            }
+                                        </tbody>
+                                    </Table>
+                                    :
+                                    <Card.Body style={{ backgroundColor: '#f3f5f7', textAlign: 'center', borderRadius: 5, paddingTop: 50, paddingBottom: 50, marginTop: 20 }}>
+                                        <img src='../assets/images/notfound.png' width={150} style={{ marginBottom: 20 }} /><br />
+                                        <strong style={{ color: '#a1a1a1' }}>There's no records found</strong>
+                                    </Card.Body>
+                                }
+                            </Col>
+                            <Col lg={12}>
+                                <strong>Current Admins</strong>
+                                {this.state.admins.length > 0 ?
+                                    <Table borderless responsive>
+                                        <tbody>
+                                            {this.state.admins.map((info, index) => {
+                                                return (
+                                                    <tr onClick={() => {
+                                                        let { businessId } = info;
+                                                        this.setState({
+                                                            businessId
+                                                        })
+                                                    }}
+                                                        style={{
+                                                            cursor: 'pointer'
+                                                        }}
+                                                    >
+                                                        <td>{info.username}</td>
+                                                        <td>{info.email}</td>
+                                                    </tr>
+                                                )
+                                            })
+                                            }
+                                        </tbody>
+                                    </Table>
+                                    :
+                                    <Card.Body style={{ backgroundColor: '#f3f5f7', textAlign: 'center', borderRadius: 5, paddingTop: 50, paddingBottom: 50, marginTop: 20 }}>
+                                        <img src='../assets/images/notfound.png' width={150} style={{ marginBottom: 20 }} /><br />
+                                        <strong style={{ color: '#a1a1a1' }}>There's no records found</strong>
+                                    </Card.Body>
+                                }
+                            </Col>
+
+                        </Row>
+                    </Col>
+                </Row>
+            )
+
         }
     }
     render() {
@@ -345,7 +522,8 @@ export default class Permissions extends Component {
                             float: 'right'
                         }}>
                             <Button onClick={() => { this.setState({ index: 0 }) }} className={this.state.index == 0 ? 'btn-tab-active' : 'btn-tab'}><strong>Valets</strong></Button>
-                         </div>
+                            <Button onClick={() => { this.setState({ index: 1 }) }} className={this.state.index == 1 ? 'btn-tab-active' : 'btn-tab'}><strong>Admins</strong></Button>
+                        </div>
                     </Col>
                 </Row>
                 {this.areaToShow(this.state.index)}

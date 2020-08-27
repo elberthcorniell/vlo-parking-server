@@ -29,7 +29,7 @@ export default class PopUpLogin extends Component {
     this.setState({
       disabled: true
     }, () => {
-      fetch('/api/validate/login', {
+      fetch('/api/validate/login/admin', {
         method: 'POST',
         body: JSON.stringify(this.state),
         headers: {

@@ -474,19 +474,9 @@ export default class Settings extends Component {
                                 <div className="profile-widget" style={{ textAlign: 'center' }}>
                                     <p style={{ width: '100%', fontWeight: 500, fontSize: 24 }} >{this.formatEmail(this.props.email)}</p>
                                     <div style={{ padding: 5, display: 'inline-block', backgroundColor: 'rgba(54,209,220,0.1)', border: 'none 0px white', borderRadius: 5, color: '#5b86e5', fontWeight: 500, width: 'fit-content' }}>
-                                        Personal
+                                        Admin
                                     </div>
-                                    <p style={{ width: 'fit-content', display: 'inline-block', color: '#5b86e5', fontWeight: 700, paddingLeft: 20 }}>Lvl. {this.props.kyc_level}</p>
                                 </div>
-                                <a href="/app/kyc"><Button
-                                    className='btn-tab'
-                                    style={{
-                                        width: 'calc(50% - 20px)',
-                                        padding: 10,
-                                        margin: 10,
-                                        boxShadow: '0px 0px rgba(0,0,0,0)'
-                                    }}><strong style={{ display: 'inline-block' }} >Verify <i style={{ fontSize: 12 }} className="material-icons">arrow_forward</i></strong></Button>
-                                </a>
                                 <Button
                                     className='btn-blue'
                                     onClick={() => { this.logout() }}

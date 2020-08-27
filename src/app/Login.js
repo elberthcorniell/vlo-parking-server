@@ -30,7 +30,7 @@ class Login extends Component {
     this.setState({
       disabled: true
     }, () => {
-      fetch('/api/validate/login', {
+      fetch('/api/validate/login/admin', {
         method: 'POST',
         body: JSON.stringify(this.state),
         headers: {
@@ -53,7 +53,7 @@ class Login extends Component {
                 token: data
               })
             } else {
-              window.location.replace(this.state.callback || '../admin/');
+              window.location.replace(this.state.callback || '../admin/live/');
               localStorage.setItem('authtoken', token);
               localStorage.setItem('username', this.state.username);
               localStorage.setItem('lastDate', Date.now());

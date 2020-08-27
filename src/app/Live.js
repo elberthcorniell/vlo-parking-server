@@ -9,15 +9,20 @@ import {
     Modal,
     Table
 } from "react-bootstrap"
-import { QRCode } from 'react-qrcode-logo';
 import toaster from 'toasted-notes';
 import io from 'socket.io-client'
+import { Line, Chart } from 'react-chartjs-2';
+Chart.defaults.scale.gridLines.display = false
+let { cameraHost } = require('../config/keys')
 let socket
 import GoogleMapReact from 'google-map-react';
 export default class Live extends Component {
     constructor(props) {
         super(props);
         this.state = {
+            temp: [],
+            hum: [],
+            tripEvents: [],
             activity: [],
             devices: [],
             users: [],
@@ -51,6 +56,8 @@ export default class Live extends Component {
     }
     componentDidMount() {
         this.props.verify(() => {
+            this.getTemp()
+            this.getHum()
             socket = io()
             socket.on('valetLocation', data => {
                 let { latitude, longitude, speed } = data
@@ -176,6 +183,7 @@ export default class Live extends Component {
                 carLocation,
                 keyLocation } = data
             if (data != "FAIL") {
+                this.getTripEvents()
                 this.setState({
                     valetLocation,
                     userLocation,
@@ -187,11 +195,128 @@ export default class Live extends Component {
             }
         })
     }
+    getTripEvents() {
+        fetch(`/api/admin/events/${this.state.tripId}`, {
+            headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+                'authorization': localStorage.getItem('authtoken')
+            }
+        })
+            .then(res => res.json())
+            .then(data => {
+                let { success, events } = data
+                this.setState({
+                    tripEvents: events || []
+                })
+            })
+    }
+
+    getTemp() {
+        fetch(`/api/admin/metrics/temp`, {
+            headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+                'authorization': localStorage.getItem('authtoken')
+            }
+        })
+            .then(res => res.json())
+            .then(data => {
+                const { success, metrics } = data
+                let dataFeed = []
+                let dataDate = []
+                metrics.reverse().map(data => {
+                    dataFeed.push(data.value)
+                    dataDate.push(this.formatDate(data.date))
+                })
+                success ?
+                    this.setState({
+                        temp: (canvas) => {
+                            const ctx = canvas.getContext("2d")
+                            const gradient = ctx.createLinearGradient(0, 350, 0, 0);
+                            gradient.addColorStop(0, 'rgba(34,80,238,0)');
+                            gradient.addColorStop(1, 'rgba(34,80,238,0.3)');
+                            return {
+                                labels: dataDate,
+                                datasets: [
+                                    {
+                                        label: 'Value',
+                                        backgroundColor: gradient,
+                                        borderColor: '#5b86e5',
+                                        pointBorderColor: 'rgba(34,80,238,0)',
+                                        borderWidth: 4,
+                                        hoverBackgroundColor: 'rgba(34,80,238,0.4)',
+                                        hoverBorderColor: 'rgba(34,80,238,1)',
+                                        data: dataFeed
+                                    }
+                                ]
+                            }
+                        }
+                    }) : ''
+            })
+    }
+    getHum() {
+        fetch(`/api/admin/metrics/hum`, {
+            headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+                'authorization': localStorage.getItem('authtoken')
+            }
+        })
+            .then(res => res.json())
+            .then(data => {
+                const { success, metrics } = data
+                let dataFeed = []
+                let dataDate = []
+                metrics.reverse().map(data => {
+                    dataFeed.push(data.value)
+                    dataDate.push(this.formatDate(data.date))
+                })
+                success ?
+                    this.setState({
+                        hum: (canvas) => {
+                            const ctx = canvas.getContext("2d")
+                            const gradient = ctx.createLinearGradient(0, 350, 0, 0);
+                            gradient.addColorStop(0, 'rgba(34,80,238,0)');
+                            gradient.addColorStop(1, 'rgba(34,80,238,0.3)');
+                            return {
+                                labels: dataDate,
+                                datasets: [
+                                    {
+                                        label: 'Value',
+                                        backgroundColor: gradient,
+                                        borderColor: '#5b86e5',
+                                        pointBorderColor: 'rgba(34,80,238,0)',
+                                        borderWidth: 4,
+                                        hoverBackgroundColor: 'rgba(34,80,238,0.4)',
+                                        hoverBorderColor: 'rgba(34,80,238,1)',
+                                        data: dataFeed
+                                    }
+                                ]
+                            }
+                        }
+                    }) : ''
+            })
+    }
     render() {
         return (
             <Container>
                 <Row>
                     <strong className="blue-title">Live View</strong>
+                    <Col style={{ marginTop: 10 }}>
+                        <div style={{
+                            float: 'right'
+                        }}>
+                            <Button
+                                onClick={() => {
+                                    this.setState({
+                                        unlock_modal: true
+                                    })
+                                }}
+                                className="btn-tab-active"
+                            ><strong>CAM</strong></Button>
+                        </div>
+                    </Col>
                 </Row>
                 <div style={{ height: '80vh', width: '100%' }}>
                     <div
@@ -294,12 +419,112 @@ export default class Live extends Component {
                 </div>
                 <Row>
                     <Col lg={6}>
-                        <h1>Trip events</h1>
+                        <h1>Trip events</h1><br />
+                        {this.state.tripEvents.length > 0 ?
+                            <Table borderless responsive>
+                                <div style={{
+                                    height: 400,
+                                    overflow: 'scroll'
+                                }}>
+                                    {this.state.tripEvents.map((info, index) => {
+                                        return (
+                                            <div style={{
+                                                padding: 10,
+                                                borderRadius: 5,
+                                                backgroundColor: info.type == null ? 'red' : info.type ? '#f3f5f7' : 'orange',
+                                                margin: 10
+                                            }}>
+                                                <strong>{info.description}</strong><br />
+                                                <strong style={{ color: info.type ? '#a1a1a1' : 'white' }}>{info.date}</strong>
+                                            </div>)
+                                    })
+                                    }
+                                </div>
+                            </Table>
+                            :
+                            <Card.Body style={{ backgroundColor: '#f3f5f7', textAlign: 'center', borderRadius: 5, paddingTop: 50, paddingBottom: 50, marginTop: 20 }}>
+                                <img src='../assets/images/notfound.png' width={150} style={{ marginBottom: 20 }} /><br />
+                                <strong style={{ color: '#a1a1a1' }}>There's no records found</strong>
+                            </Card.Body>
+                        }
                     </Col>
                     <Col lg={6}>
-                        <h1>Parking State</h1>
+                        <h1>Parking State</h1><br />
+                        {this.state.temp.length > 0 ?
+                            <div>
+                                <strong>Temperature:</strong>
+                                <Line
+                                    className="hidden"
+                                    options={{
+                                        responsive: true,
+                                        legend: {
+                                            display: false
+                                        },
+                                        scales: {
+                                            xAxes: [{
+                                                ticks: {
+                                                    display: false
+                                                }
+                                            }],
+                                            yAxes: [{
+                                                ticks: {
+                                                    display: false
+                                                }
+                                            }]
+                                        }
+                                    }}
+                                    data={this.state.temp}
+                                />
+                            </div>
+                            :
+                            <Card.Body style={{ backgroundColor: '#f3f5f7', textAlign: 'center', borderRadius: 5, paddingTop: 50, paddingBottom: 50, marginTop: 20 }}>
+                                <img src='../assets/images/notfound.png' width={150} style={{ marginBottom: 20 }} /><br />
+                                <strong style={{ color: '#a1a1a1' }}>There's no records found</strong>
+                            </Card.Body>}
+                        {this.state.hum.length > 0 ?
+                            <div>
+                                <strong>Humidity:</strong>
+                                <Line
+                                    className="hidden"
+                                    options={{
+                                        responsive: true,
+                                        legend: {
+                                            display: false
+                                        },
+                                        scales: {
+                                            xAxes: [{
+                                                ticks: {
+                                                    display: false
+                                                }
+                                            }],
+                                            yAxes: [{
+                                                ticks: {
+                                                    display: false
+                                                }
+                                            }]
+                                        }
+                                    }}
+                                    data={this.state.hum}
+                                />
+                            </div>
+                            :
+                            <Card.Body style={{ backgroundColor: '#f3f5f7', textAlign: 'center', borderRadius: 5, paddingTop: 50, paddingBottom: 50, marginTop: 20 }}>
+                                <img src='../assets/images/notfound.png' width={150} style={{ marginBottom: 20 }} /><br />
+                                <strong style={{ color: '#a1a1a1' }}>There's no records found</strong>
+                            </Card.Body>}
                     </Col>
                 </Row>
+                <Modal style={{ overflow: 'hidden', maxHeight: '100vh' }} size="lg" show={this.state.unlock_modal} onHide={() => this.setState({
+                    unlock_modal: false
+                })}>
+                    <div style={{ zIndex: 5, width: 'fit-content', height: 'fit-content', position: 'absolute', top: 10, right: 10, cursor: 'pointer' }} onClick={() => this.setState({ unlock_modal: false })}>
+                        <i className="material-icons left" style={{ fontSize: 18 }}>clear</i>
+                    </div>
+                    <Modal.Body style={{ padding: 5, overflowY: 'scroll', overflowX: 'hidden' }}>
+                        <video id="video" src={cameraHost} autoPlay="autoplay" width="100%" height="100%">
+                        </video>
+                    </Modal.Body>
+                </Modal>
                 <div style={{ height: 60 }}></div>
             </Container >
         )
