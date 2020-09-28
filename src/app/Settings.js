@@ -549,7 +549,7 @@ export default class Settings extends Component {
                                                 <td>{info.name == 'gpsCard' ? <i className="material-icons" style={{ color: 'darkcyan' }}>gps_fixed</i> : ''}</td>
                                                 <td className="hidden" style={{ width: 200 }}><strong>{info.name}</strong><br /><strong style={{ color: '#a1a1a1' }}>{info.deviceId}</strong></td>
                                                 <td><strong style={{ color: info.status ? '#15CD72' : 'red' }}>{info.status ? 'Active' : 'Disabled'} {info.currency}</strong><br /><strong style={{ color: (info.status ? '#a1a1a1' : info.status == null ? 'red' : 'darkorange') }}>{info.status == 1 ? this.formatDate(info.dateAdded) : info.status == null ? 'Failed' : 'Pending...'}</strong></td>
-                                                <td><div className="circle-btn"><i className="material-icons">mode_edit</i></div><div className="circle-btn"><i onClick={() => { this.deleteDevice(info.deviceId) }} className="material-icons">delete</i></div></td>
+                                                <td><div className="circle-btn"><i onClick={() => { this.deleteDevice(info.deviceId) }} className="material-icons">delete</i></div></td>
                                             </tr>
                                         )
                                     })
@@ -852,7 +852,6 @@ export default class Settings extends Component {
                             <Button onClick={() => { this.setState({ index: 1 }) }} className={this.state.index == 1 ? 'btn-tab-active' : 'btn-tab'}><strong>Devices</strong></Button>
                             <Button onClick={() => { this.setState({ index: 2 }) }} className={this.state.index == 2 ? 'btn-tab-active' : 'btn-tab'}><strong>Business</strong></Button>
                             <Button onClick={() => { this.setState({ index: 3 }) }} className={this.state.index == 3 ? 'btn-tab-active' : 'btn-tab'}><strong>Parking</strong></Button>
-                            <Button onClick={() => { this.setState({ index: 4 }) }} className={this.state.index == 4 ? 'btn-tab-active' : 'btn-tab'}><strong>Account</strong></Button>
                         </div>
                     </Col>
                 </Row>

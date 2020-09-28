@@ -50,10 +50,10 @@ class Login extends Component {
               this.setState({
                 login_otp: true,
                 "2fa": data["2fa"],
-                token: data
+                token: data.token
               })
             } else {
-              window.location.replace(this.state.callback || '../admin/live/');
+              window.location.replace(this.state.callback || '../admin/live');
               localStorage.setItem('authtoken', token);
               localStorage.setItem('username', this.state.username);
               localStorage.setItem('lastDate', Date.now());
@@ -139,7 +139,7 @@ class Login extends Component {
         {this.state.login_otp ?
           <Authenticator
             callback={() => {
-              window.location.replace(this.state.callback || '../admin/');
+              window.location.replace(this.state.callback || '../admin/live');
               localStorage.setItem('authtoken', this.state.token);
               localStorage.setItem('username', this.state.username);
               localStorage.setItem('lastDate', Date.now());

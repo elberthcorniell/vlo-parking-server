@@ -42,7 +42,7 @@ export default class PopUpLogin extends Component {
           this.setState({
             disabled: false
           })
-          if (data.success == true) {
+          if (data.success) {
             if (data["2fa"]) {
               this.setState({
                 login_otp: true,

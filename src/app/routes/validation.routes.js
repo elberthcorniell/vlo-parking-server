@@ -91,7 +91,7 @@ router.post("/login", (req, res) => {
   }
   const { username, password } = req.body;
   connection.query('SELECT * FROM user WHERE username = ' + mysql.escape(username), (err, result) => {
-    if (result.length < 1 && result != undefined) {
+    if (!result || result.length < 1) {
       return res.json({ username_err: "Username not found" });
     } else {
       bcrypt.compare(password, result[0].password).then(isMatch => {
@@ -127,7 +127,7 @@ router.post("/login", (req, res) => {
 
 
   });
-});
+}); 
 router.post("/login/valet", (req, res) => {
   const { errors, isValid } = validateLoginInput(req.body);
   if (!isValid) {
@@ -135,8 +135,8 @@ router.post("/login/valet", (req, res) => {
   }
   const { username, password } = req.body;
   connection.query('SELECT * FROM valet WHERE username = ' + mysql.escape(username), (err, result) => {
-    if (result.length < 1 && result != undefined) {
-      return res.json({ username_err: "Username not found" });
+    if (!result || result.length < 1) {
+      return res.json({ username_err: "Valet not found" });
     } else {
       bcrypt.compare(password, result[0].password).then(isMatch => {
         if (isMatch) {
@@ -180,13 +180,13 @@ router.post("/login/admin", (req, res) => {
   }
   const { username, password } = req.body;
   connection.query('SELECT * FROM admin WHERE username = ' + mysql.escape(username), (err, result) => {
-    if (result.length < 1 && result != undefined) {
-      return res.json({ username_err: "Username not found" });
+    if (!result || result.length < 1) {
+      return res.json({ username_err: "Admin not found" });
     } else {
       bcrypt.compare(password, result[0].password).then(isMatch => {
         if (isMatch) {
           let { username, email } = result[0]
-          const payload = { username, email };
+          const payload = { username, email, '2fa': result[0]['2fa'] };
           jwt.sign(payload, keys.secretOrKey,
             {
               expiresIn: 18000
@@ -196,7 +196,8 @@ router.post("/login/admin", (req, res) => {
                 success: true,
                 token,
                 username,
-                email: result[0].email
+                email: result[0].email,
+                '2fa': result[0]['2fa']
               });
             }
           );
@@ -286,15 +287,21 @@ router.post("/sensor", (req, res) => {
     type: temp ? 'temp' : hum ? 'hum' : 'flame',
     value: parseFloat(temp || hum || flame)
   })
-  if(parseInt(flame)==0){
+  if (parseInt(flame) < 10) {
     const { alertFlame } = require('../../config/server')
     alertFlame()
   }
   res.json({
     success: true
   })
-})
+})/*
 router.post("/vlo", (req, res) => {
+  console.log(req.body)
+  try{
+    console.log(Buffer.from(req.body.payload, 'base64'))
+  }catch(e){
+
+  }
   let { rxInfo, devEUI, deviceName } = req.body
   let { latitude, longitude } = rxInfo[0].location
   connection.query("INSERT INTO location SET ?", {
@@ -310,12 +317,6 @@ router.post("/vlo", (req, res) => {
     success: true
   })
 })
-/*setTimeout(()=>{
-  const { processData } = require('../../config/server')
-  processData('cf12b972-6665-46b3-b410-cbf2288dc50d', {
-    latitude: 19.4140539000,
-    longitude: -70.5198010000
-  })
-}, 5000)*/
+*/
 module.exports = router;
 

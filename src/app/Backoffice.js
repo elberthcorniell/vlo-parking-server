@@ -78,10 +78,6 @@ class Backoffice extends Component {
                 <div className="content">
                     <div style={{ height: 10, width: '100%' }} className="hidden">
                     </div>
-                    <Route exact path="/admin" render={(props) => <div {...props}
-
-                    />}
-                    />
                     <Route exact path="/admin/live" render={(props) => <Live {...props}
                         email={this.state.email}
                         verify={e => { this.verify(e) }}

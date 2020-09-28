@@ -19,6 +19,7 @@ class Authenticator extends Component {
     }
     componentDidMount() {
         document.getElementById(this.state.id).focus();
+        console.log(authenticator.generateSecret())
     }
     onKeyPressed(event) {
         if ((event.keyCode == 8 || event.keyCode == 46) & event.target.value.length == 0) {
@@ -123,7 +124,7 @@ class Authenticator extends Component {
                 </div>
                 <Modal.Body style={{ padding: 20, marginTop: 20, marginBottom: 30 }}>
                     <div style={{ width: '100%', textAlign: 'center' }}>
-                        <img src="../assets/images/Auth.png" width={80} height={80} style={{ margin: 20 }} />
+                        <img src="/assets/images/Auth.png" width={80} height={80} style={{ margin: 20 }} />
                         <div>
                             <strong style={{ display: 'inline-block' }}>
                                 Input the 6-digit code in your Authenticator app:

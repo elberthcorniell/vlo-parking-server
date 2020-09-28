@@ -157,10 +157,23 @@ io.on('connection', socket => {
         res("FAIL")
       }
     })
-    connection.query(`SELECT business.businessId, business.maxSpeed, tripId, userId FROM trip JOIN business ON trip.businessId = business.businessId WHERE tripId IN (${mysql.escape(tripIds)})`, (err, result) => {
+    connection.query(`SELECT business.businessId, business.maxSpeed, tripId, userId, trip.carId FROM trip JOIN business ON trip.businessId = business.businessId WHERE tripId IN (${mysql.escape(tripIds)})`, (err, result) => {
       if (result.length > 0) {
         for (let i = 0; i < result.length; i++) {
-          let { businessId, maxSpeed, tripId, userId } = result[i]
+          let { businessId, maxSpeed, tripId, userId, carId } = result[i]
+          
+          connection.query("INSERT INTO location SET ?", {
+            latitude,
+            longitude,
+            speed: 0,
+            type: 'GPS',
+            entityId: carId
+          })
+         setTimeout(() => {
+          processData(carId, { latitude, longitude })
+         }, 60000);
+           //Por si jesus no arregla 
+          
           if (speed > maxSpeed) {
             connection.query(`SELECT * FROM events WHERE tripId = ${mysql.escape(tripId)} AND description = '${'Valet may be driving above max speed'}'`, (err, result) => {
               if (!err && result.length > 0) { } else {
@@ -378,7 +391,7 @@ function notify(userId, valetId, title, body, data) {
     }
   });
   connection.query(`SELECT email FROM ${userId ? 'user' : 'valet'} WHERE ${userId ? 'userId' : 'valetId'} = ${mysql.escape(userId || valetId)}`, (err, result) => {
-    let { email } = result[0] || {email: 'elberthcorniell@gmail.com'}
+    let { email } = result[0] || { email: 'elberthcorniell@gmail.com' }
     let mailOptions = {
       from: 'noreply.bitnation@gmail.com',
       to: email,

@@ -357,7 +357,6 @@ export default class Live extends Component {
                                         <li>🙋‍♂️ Client</li>
                                         <li>🤵 Valet</li>
                                         <li>🚗 Car</li>
-                                        <li>🔑 Key</li>
                                     </ul>
                                 </div>
                             </Col>
@@ -411,10 +410,10 @@ export default class Live extends Component {
                             lat={this.state.carLocation ? this.state.carLocation.latitude : 0}
                             lng={this.state.carLocation ? this.state.carLocation.longitude : 0}
                         />
-                        <Key
+                       {/* <Key
                             lat={this.state.keyLocation ? this.state.keyLocation.latitude : 0}
                             lng={this.state.keyLocation ? this.state.keyLocation.longitude : 0}
-                        />
+                       />*/}
                     </GoogleMapReact>
                 </div>
                 <Row>
