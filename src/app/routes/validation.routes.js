@@ -106,7 +106,6 @@ router.post("/login", (req, res) => {
               expiresIn: 18000 // 3 min in seconds
             },
             (err, token) => {
-              console.log('success')
               res.json({
                 success: true,
                 token,
@@ -187,8 +186,7 @@ router.post("/login/admin", (req, res) => {
         if (isMatch) {
           let { username, email } = result[0]
           const payload = { username, email, '2fa': result[0]['2fa'] };
-          jwt.sign(payload, keys.secretOrKey,
-            {
+          jwt.sign(payload, keys.secretOrKey, {
               expiresIn: 18000
             },
             (err, token) => {
